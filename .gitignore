@@ -1,1 +1,6 @@
 .settings/language.settings.xml
+*.o
+*.su
+*.mk
+*.d
+*.cyclo
