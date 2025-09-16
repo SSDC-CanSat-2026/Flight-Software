@@ -21,6 +21,7 @@
 #include "cmsis_os.h"
 #include "app_fatfs.h"
 #include "usb_device.h"
+#include "../../Drivers/MS5607/MS5607SPI.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -150,9 +151,29 @@ int main(void)
   if (MX_FATFS_Init() != APP_OK) {
     Error_Handler();
   }
-  /* USER CODE BEGIN 2 */
+  /* USER CODE BEGIN 2 *
 
-  /* USER CODE END 2 */
+  /* Initialize pressure sensor (MS5607) */
+  MS5607_Init(&hspi2, BMP_nCS_GPIO_Port, BMP_nCS_Pin);
+
+
+  /**
+    * @brief  Function implementing the defaultTask thread.
+    * @param  argument: Not used
+    * @retval None
+    */
+  /* USER CODE END Header_StartDefaultTask */
+  void readData(void const * argument)
+  {
+
+
+    for(;;)
+    {
+      osDelay(1);
+    }
+    /* USER CODE END 2 */
+  }
+
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -173,6 +194,7 @@ int main(void)
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  osThreadDef(readSensors, readData, osPriorityHigh, 0, 256); 				/* CanSat Thread : Definition found at line 160*/
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
