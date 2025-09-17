@@ -4,3 +4,4 @@
 *.mk
 *.d
 *.cyclo
+*.list
