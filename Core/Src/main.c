@@ -22,7 +22,8 @@
 #include "cmsis_os.h"
 #include "app_fatfs.h"
 #include "usb_device.h"
-#include "../../Drivers/MS5607/MS5607SPI.h"
+#include "../../Drivers/MS5607/MS5607SPI.h" // Pressure and Temperature Sensor
+#include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -153,8 +154,11 @@ int main(void)
   }
   /* USER CODE BEGIN 2 *
 
-  /* Initialize pressure sensor (MS5607) */
+  /* Initialize pressure and temperature sensor (MS5607) */
   MS5607_Init(&hspi2, BMP_nCS_GPIO_Port, BMP_nCS_Pin);
+
+  /* Initialize acceleration and gyro sensor (ICM42688P) */
+  ICM42688P_init(&hspi2, IMU_nCS_GPIO_Port, IMU_nCS_Pin);
 
   /**
     * @brief  Function implementing the defaultTask thread.
@@ -183,9 +187,31 @@ int main(void)
             // the LOCKING thread assumes the priority of the resource trying to
             // take it
 
-            MS5607Readings MS5607 = MS5607_ReadValues();
-            global_mission_data.pressure = MS5607.pressure_kPa;
-            global_mission_data.temperature = MS5607.temperature_C;
+        	// global_mission_data.MODE and global_mission_data.CMD_ECHO is dealt with in readCommands
+
+            MS5607Readings MS5607_Data = MS5607ReadValues();
+            if (global_mission_data.MODE == 'F'){ // In Flight Mode
+                global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
+            }
+            else{ // In Simulation Mode and need to read from the CSV instead.
+            	// TODO
+            }
+            global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
+
+            global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
+            determineState(global_mission_data.ALTITUDE);
+
+            ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+            global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
+			global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
+			global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+
+			global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
+			global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
+			global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+
+			// https://wiki.st.com/stm32mcu/wiki/Getting_started_with_RTC
+
 
             // Relinquish access to the global_mission_data struct
             xSemaphoreGive(data_mutex);
