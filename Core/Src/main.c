@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "global.h"
 #include "cmsis_os.h"
 #include "app_fatfs.h"
 #include "usb_device.h"
@@ -109,7 +110,6 @@ void StartDefaultTask(void const * argument);
   */
 int main(void)
 {
-
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -156,24 +156,47 @@ int main(void)
   /* Initialize pressure sensor (MS5607) */
   MS5607_Init(&hspi2, BMP_nCS_GPIO_Port, BMP_nCS_Pin);
 
-
   /**
     * @brief  Function implementing the defaultTask thread.
     * @param  argument: Not used
     * @retval None
     */
   /* USER CODE END Header_StartDefaultTask */
+
+  /** MUTEX THINGS **/
+  SemaphoreHandle_t data_mutex = NULL;
+  data_mutex = xSemaphoreCreateMutex();
+  if (data_mutex == NULL) {
+      // mutex was not created properly, there is a problem!!!
+      // do something
+  }
+
   void readData(void const * argument)
   {
-
-
     for(;;)
     {
-      osDelay(1);
+        if (xSemaphoreTake( data_mutex, ( TickType_t ) 100 ) == pdTRUE)
+        {
+            // #1 PRIORITY: make sure mutex unlocks no matter what!!!!
+
+            // -> if a HIGHER priority task attempts to access a locked resource,
+            // the LOCKING thread assumes the priority of the resource trying to
+            // take it
+
+            MS5607Readings MS5607 = MS5607_ReadValues();
+            global_mission_data.pressure = MS5607.pressure_kPa;
+            global_mission_data.temperature = MS5607.temperature_C;
+
+            // Relinquish access to the global_mission_data struct
+            xSemaphoreGive(data_mutex);
+        }
+        else {
+            // semaphore could not be taken due to someone else using it or smth
+            // probably jsut do nothing here
+        }
     }
     /* USER CODE END 2 */
   }
-
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */

@@ -1,0 +1,69 @@
+/Applications/CLion.app/Contents/bin/cmake/mac/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=/Library/Developer/CommandLineTools/usr/bin/clang -DCMAKE_CXX_COMPILER=/opt/homebrew/bin/g++-14 -G "CodeBlocks - Unix Makefiles" -S /Users/bsibb22/Documents/Flight-Software -B /Users/bsibb22/Documents/Flight-Software/cmake-build-debug
+CMake Error: Could not find cmake module file: CMakeDetermineCanSatCompiler.cmake
+CMake Error: Could not find cmake module file: /Users/bsibb22/Documents/Flight-Software/cmake-build-debug/CMakeFiles/3.24.2/CMakeCanSatCompiler.cmake
+CMake Error: Could not find cmake module file: CMakeDetermine25-26Compiler.cmake
+CMake Error: Could not find cmake module file: /Users/bsibb22/Documents/Flight-Software/cmake-build-debug/CMakeFiles/3.24.2/CMake25-26Compiler.cmake
+-- The C compiler identification is unknown
+-- The CXX compiler identification is unknown
+-- The ASM compiler identification is unknown
+-- Found assembler: arm-none-eabi-gcc
+CMake Error at CMakeLists.txt:17 (project):
+  No CMAKE_CanSat_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting the CMake cache entry
+  CMAKE_CanSat_COMPILER to the full path to the compiler, or to the compiler
+  name if it is in the PATH.
+
+
+CMake Error: Could not find cmake module file: CMakeCanSatInformation.cmake
+CMake Error at CMakeLists.txt:17 (project):
+  No CMAKE_25-26_COMPILER could be found.
+
+  Tell CMake where to find the compiler by setting the CMake cache entry
+  CMAKE_25-26_COMPILER to the full path to the compiler, or to the compiler
+  name if it is in the PATH.
+
+
+CMake Error: Could not find cmake module file: CMake25-26Information.cmake
+CMake Error at CMakeLists.txt:17 (project):
+  The CMAKE_C_COMPILER:
+
+    arm-none-eabi-gcc
+
+  is not a full path and was not found in the PATH.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "CC" or the CMake cache entry CMAKE_C_COMPILER to the full path to
+  the compiler, or to the compiler name if it is in the PATH.
+
+
+CMake Error at CMakeLists.txt:17 (project):
+  The CMAKE_CXX_COMPILER:
+
+    arm-none-eabi-g++
+
+  is not a full path and was not found in the PATH.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "CXX" or the CMake cache entry CMAKE_CXX_COMPILER to the full path
+  to the compiler, or to the compiler name if it is in the PATH.
+
+
+CMake Error at CMakeLists.txt:17 (project):
+  The CMAKE_ASM_COMPILER:
+
+    arm-none-eabi-gcc
+
+  is not a full path and was not found in the PATH.
+
+  Tell CMake where to find the compiler by setting either the environment
+  variable "ASM" or the CMake cache entry CMAKE_ASM_COMPILER to the full path
+  to the compiler, or to the compiler name if it is in the PATH.
+
+
+-- Warning: Did not find file Compiler/-ASM
+CMake Error: CMAKE_CanSat_COMPILER not set, after EnableLanguage
+CMake Error: CMAKE_25-26_COMPILER not set, after EnableLanguage
+-- Configuring incomplete, errors occurred!
+See also "/Users/bsibb22/Documents/Flight-Software/cmake-build-debug/CMakeFiles/CMakeOutput.log".
+See also "/Users/bsibb22/Documents/Flight-Software/cmake-build-debug/CMakeFiles/CMakeError.log".
