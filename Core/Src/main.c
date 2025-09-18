@@ -187,7 +187,11 @@ int main(void)
             // the LOCKING thread assumes the priority of the resource trying to
             // take it
 
-        	// global_mission_data.MODE and global_mission_data.CMD_ECHO is dealt with in readCommands
+        	/*
+        	 * global_mission_data.MODE, global_mission_data.CMD_ECHO,
+        	 * and global_mission_data.PACKET_COUNT
+        	 * is dealt with in readCommands.
+        	 */
 
             MS5607Readings MS5607_Data = MS5607ReadValues();
             if (global_mission_data.MODE == 'F'){ // In Flight Mode
@@ -210,8 +214,29 @@ int main(void)
 			global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
 			global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
 
-			// https://wiki.st.com/stm32mcu/wiki/Getting_started_with_RTC
+			RTC_TimeTypeDef sTime = {0};
+			// Needed to unlock time registers
+			RTC_DateTypeDef sDate = {0};
 
+			if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK){
+				Error_Handler();
+			}
+
+			// Needed to unlock time registers
+			if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK){
+				Error_Handler();
+			}
+
+			snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
+			               sTime.Hours, sTime.Minutes, sTime.Seconds);
+
+			/*
+			 * Get Voltage and Current from Magnetometer
+			 */
+
+			/*
+			 * Get GPS information from GPS
+			 */
 
             // Relinquish access to the global_mission_data struct
             xSemaphoreGive(data_mutex);
