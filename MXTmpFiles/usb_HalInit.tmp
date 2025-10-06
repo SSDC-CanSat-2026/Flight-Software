@@ -1,0 +1,20 @@
+
+#thpcd_USB_FS.Instance = USB;
+#thpcd_USB_FS.Init.dev_endpoints = 8;
+#thpcd_USB_FS.Init.speed = PCD_SPEED_FULL;
+#thpcd_USB_FS.Init.phy_itface = PCD_PHY_EMBEDDED;
+#thpcd_USB_FS.Init.Sof_enable = DISABLE;
+#thpcd_USB_FS.Init.low_power_enable = DISABLE;
+#thpcd_USB_FS.Init.lpm_enable = DISABLE;
+#thpcd_USB_FS.Init.battery_charging_enable = DISABLE;
+#n#t#if (USE_HAL_PCD_REGISTER_CALLBACKS == 1U)
+#t/* register Msp Callbacks (before the Init) */
+#tHAL_PCD_RegisterCallback(&hpcd_USB_FS, HAL_PCD_MSPINIT_CB_ID, PCD_MspInit);
+#tHAL_PCD_RegisterCallback(&hpcd_USB_FS, HAL_PCD_MSPDEINIT_CB_ID, PCD_MspDeInit);
+#t#endif /* USE_HAL_PCD_REGISTER_CALLBACKS */#n
+#tif (HAL_PCD_Init(&hpcd_USB_FS) != HAL_OK)
+#t{
+#t#tError_Handler( );
+#t}
+#n
+#n

@@ -1,0 +1,4 @@
+void StartReadSensors(void const * argument);
+void StartCamAndCommands(void const * argument);
+void StartSendTelemetry(void const * argument);
+void StartGNC(void const * argument);#n
