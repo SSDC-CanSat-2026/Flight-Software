@@ -21,7 +21,6 @@
 #include "cmsis_os.h"
 #include "app_fatfs.h"
 #include "usb_device.h"
-#include "../../Drivers/MS5607/MS5607SPI.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -68,7 +67,10 @@ UART_HandleTypeDef huart5;
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart3_tx;
 
-osThreadId defaultTaskHandle;
+osThreadId readSensorsHandle;
+osThreadId camAndCommandsHandle;
+osThreadId sendTelemetryHandle;
+osThreadId guideNavCtrlHandle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -92,7 +94,10 @@ static void MX_TIM3_Init(void);
 static void MX_TIM15_Init(void);
 static void MX_TIM16_Init(void);
 static void MX_TIM17_Init(void);
-void StartDefaultTask(void const * argument);
+void StartReadSensors(void const * argument);
+void StartCamAndCommands(void const * argument);
+void StartSendTelemetry(void const * argument);
+void StartGNC(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -151,29 +156,9 @@ int main(void)
   if (MX_FATFS_Init() != APP_OK) {
     Error_Handler();
   }
-  /* USER CODE BEGIN 2 *
+  /* USER CODE BEGIN 2 */
 
-  /* Initialize pressure sensor (MS5607) */
-  MS5607_Init(&hspi2, BMP_nCS_GPIO_Port, BMP_nCS_Pin);
-
-
-  /**
-    * @brief  Function implementing the defaultTask thread.
-    * @param  argument: Not used
-    * @retval None
-    */
-  /* USER CODE END Header_StartDefaultTask */
-  void readData(void const * argument)
-  {
-
-
-    for(;;)
-    {
-      osDelay(1);
-    }
-    /* USER CODE END 2 */
-  }
-
+  /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -192,10 +177,21 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
-  osThreadDef(readSensors, readData, osPriorityHigh, 0, 256); 				/* CanSat Thread : Definition found at line 160*/
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+  /* definition and creation of readSensors */
+  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 128);
+  readSensorsHandle = osThreadCreate(osThread(readSensors), NULL);
+
+  /* definition and creation of camAndCommands */
+  osThreadDef(camAndCommands, StartCamAndCommands, osPriorityNormal, 0, 128);
+  camAndCommandsHandle = osThreadCreate(osThread(camAndCommands), NULL);
+
+  /* definition and creation of sendTelemetry */
+  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 128);
+  sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
+
+  /* definition and creation of guideNavCtrl */
+  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 128);
+  guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -1125,14 +1121,14 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_StartReadSensors */
 /**
-  * @brief  Function implementing the defaultTask thread.
+  * @brief  Function implementing the read_sensors thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const * argument)
+/* USER CODE END Header_StartReadSensors */
+void StartReadSensors(void const * argument)
 {
   /* init code for USB_Device */
   MX_USB_Device_Init();
@@ -1143,6 +1139,60 @@ void StartDefaultTask(void const * argument)
     osDelay(1);
   }
   /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartCamAndCommands */
+/**
+* @brief Function implementing the cam_and_command thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartCamAndCommands */
+void StartCamAndCommands(void const * argument)
+{
+  /* USER CODE BEGIN StartCamAndCommands */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartCamAndCommands */
+}
+
+/* USER CODE BEGIN Header_StartSendTelemetry */
+/**
+* @brief Function implementing the send_telemetry thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartSendTelemetry */
+void StartSendTelemetry(void const * argument)
+{
+  /* USER CODE BEGIN StartSendTelemetry */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartSendTelemetry */
+}
+
+/* USER CODE BEGIN Header_StartGNC */
+/**
+* @brief Function implementing the guide_nav_ctrl thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartGNC */
+void StartGNC(void const * argument)
+{
+  /* USER CODE BEGIN StartGNC */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartGNC */
 }
 
 /**

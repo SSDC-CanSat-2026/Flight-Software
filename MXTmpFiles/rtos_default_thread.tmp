@@ -1,0 +1,21 @@
+
+#n#n
+/* USER CODE BEGIN Header_StartReadSensors */
+/**
+  * @brief  Function implementing the readSensors thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartReadSensors */
+void StartReadSensors(void const * argument)
+{
+#t/* init code for USB_Device */
+#tMX_USB_Device_Init();#n#t/* USER CODE BEGIN 5 */
+#t/* Infinite loop */
+#tfor(;;)
+#t{
+#t#tosDelay(1);
+#t}
+#t/* USER CODE END 5 */
+}
+#n
