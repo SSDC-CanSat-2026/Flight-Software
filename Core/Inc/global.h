@@ -13,10 +13,9 @@
 
 #define STATE_TEXT_LEN 14 // 13 max, plus 1 for null char
 #define CMD_ECHO_LEN 10
+#define CMD_BUFFER_LEN 22 //21 max, plus 1 for null
 
 // flags
-
-
 
 // struct
 /* WATCH FOR RACE CONDITIONS */

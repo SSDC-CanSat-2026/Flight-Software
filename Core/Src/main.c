@@ -1140,20 +1140,20 @@ void StartReadSensors(void const *argument)
 		 * is dealt with in readCommands.
 		 */
 
-		  MS5607Readings MS5607_Data = MS5607ReadValues();
-		  if (global_mission_data.MODE == 'F'){ // In Flight Mode
-			  global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
-		  }
-		  else{ // In Simulation Mode and need to read from the CSV instead.
-			// TODO
-		  }
-		  global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
+		MS5607Readings MS5607_Data = MS5607ReadValues();
+		if (global_mission_data.MODE == 'F'){ // In Flight Mode
+			 global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
+		}
+		else { // In Simulation Mode and need to read from the CSV instead.
+			  // TODO
+		}
+		global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
-		  global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
-		  determineState(global_mission_data.ALTITUDE);
+		global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
+		determineState(global_mission_data.ALTITUDE);
 
-		  ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
-		  global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
+		ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+		global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
 		global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
 		global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
 
@@ -1208,6 +1208,8 @@ void StartCamAndCommands(void const *argument)
   /* Infinite loop */
   for (;;)
   {
+	char command_buffer[CMD_BUFFER_LEN];
+
     osDelay(1);
   }
   /* USER CODE END StartCamAndCommands */
