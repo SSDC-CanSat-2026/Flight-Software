@@ -22,7 +22,7 @@
 #include "app_fatfs.h"
 #include "usb_device.h"
 #include "global.h"
-#include "../../Drivers/MS5607/MS5607SPI.h" // Pressure and Temperature Sensor
+#include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
 
 /* Private includes ----------------------------------------------------------*/
@@ -115,7 +115,7 @@ void StartGNC(void const *argument);
  * @brief  The application entry point.
  * @retval int
  */
-//The semaphore should be global no?
+// The semaphore should be global no?
 SemaphoreHandle_t data_mutex = NULL;
 int main(void)
 {
@@ -1117,81 +1117,86 @@ static void MX_GPIO_Init(void)
 void StartReadSensors(void const *argument)
 {
   /* init code for USB_Device */
-  //Does this need to be here?
+  // Does this need to be here?
   MX_USB_Device_Init();
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
 
   /* USER CODE END 5 */
 
-  for(;;)
+  for (;;)
   {
-	  if (xSemaphoreTake( data_mutex, ( TickType_t ) 100 ) == pdTRUE)
-	  {
-		  // #1 PRIORITY: make sure mutex unlocks no matter what!!!!
+    if (xSemaphoreTake(data_mutex, (TickType_t)100) == pdTRUE)
+    {
+      // #1 PRIORITY: make sure mutex unlocks no matter what!!!!
 
-		  // -> if a HIGHER priority task attempts to access a locked resource,
-		  // the LOCKING thread assumes the priority of the resource trying to
-		  // take it
+      // -> if a HIGHER priority task attempts to access a locked resource,
+      // the LOCKING thread assumes the priority of the resource trying to
+      // take it
 
-		/*
-		 * global_mission_data.MODE, global_mission_data.CMD_ECHO,
-		 * and global_mission_data.PACKET_COUNT
-		 * is dealt with in readCommands.
-		 */
+      /*
+       * global_mission_data.MODE, global_mission_data.CMD_ECHO,
+       * and global_mission_data.PACKET_COUNT
+       * is dealt with in readCommands.
+       */
 
-		MS5607Readings MS5607_Data = MS5607ReadValues();
-		if (global_mission_data.MODE == 'F'){ // In Flight Mode
-			 global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
-		}
-		else { // In Simulation Mode and need to read from the CSV instead.
-			  // TODO
-		}
-		global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
+      MS5607Readings MS5607_Data = MS5607ReadValues();
+      if (global_mission_data.MODE == 'F')
+      { // In Flight Mode
+        global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
+      }
+      else
+      { // In Simulation Mode and need to read from the CSV instead.
+        // TODO
+      }
+      global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
-		global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
-		determineState(global_mission_data.ALTITUDE);
+      global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
+      determineState(global_mission_data.ALTITUDE);
 
-		ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
-		global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
-		global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
-		global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+      ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+      global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
+      global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
+      global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
 
-		global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
-		global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
-		global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+      global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
+      global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
+      global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
 
-		RTC_TimeTypeDef sTime = {0};
-		// Needed to unlock time registers
-		RTC_DateTypeDef sDate = {0};
+      RTC_TimeTypeDef sTime = {0};
+      // Needed to unlock time registers
+      RTC_DateTypeDef sDate = {0};
 
-		if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK){
-			Error_Handler();
-		}
+      if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
+      {
+        Error_Handler();
+      }
 
-		// Needed to unlock time registers
-		if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK){
-			Error_Handler();
-		}
+      // Needed to unlock time registers
+      if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
+      {
+        Error_Handler();
+      }
 
-		snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
-					   sTime.Hours, sTime.Minutes, sTime.Seconds);
+      snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
+               sTime.Hours, sTime.Minutes, sTime.Seconds);
 
-		/*
-		 * Get Voltage and Current from Magnetometer
-		 */
+      /*
+       * Get Voltage and Current from Magnetometer
+       */
 
-		/*
-		 * Get GPS information from GPS
-		 */
+      /*
+       * Get GPS information from GPS
+       */
 
-		  // Relinquish access to the global_mission_data struct
-		  xSemaphoreGive(data_mutex);
-	  }
-	  else {
-		  // semaphore could not be taken due to someone else using it or smth
-		  // probably jsut do nothing here
-	  }
+      // Relinquish access to the global_mission_data struct
+      xSemaphoreGive(data_mutex);
+    }
+    else
+    {
+      // semaphore could not be taken due to someone else using it or smth
+      // probably jsut do nothing here
+    }
   }
 }
 
@@ -1208,9 +1213,108 @@ void StartCamAndCommands(void const *argument)
   /* Infinite loop */
   for (;;)
   {
-	char command_buffer[CMD_BUFFER_LEN];
+    // do interrupts have to be enabled for this? they are in the previous project
 
-    osDelay(1);
+    // i honestly dk if this is peak performance tbh
+    // something tells me we could just have a char array to begin with but i would wanna
+    // wait until we can test to make changes for sure
+    uint8_t command_buffer[CMD_BUFFER_LEN];
+    HAL_UART_Receive_IT(&huart3, command_buffer, CMD_BUFFER_LEN);
+
+    char *char_arr = (char *)command_buffer;
+    char rx_string[CMD_BUFFER_LEN];
+
+    strncpy(rx_string, char_arr, CMD_BUFFER_LEN);
+    if (strncmp(rx_string, "CMD,3174,CX,ON", 14) == 0)
+    {
+      // set command echo in the global mission struct
+      char c_echo[] = "CXON";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // CX OFF command -> stop transmitting telemetry packets
+    else if (strncmp(rx_string, "CMD,3174,CX,OFF", 15) == 0)
+    {
+      // set command echo
+      char c_echo[] = "CXOFF";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // ST command -> set mission time
+    else if (strncmp(rx_string, "CMD,3174,ST,", 12) == 0)
+    {
+      // parse the timestamp to set to
+      char arg[9];
+      char *time_str = rx_string + 12;
+      strncpy(arg, time_str, 9);
+
+      // removed this code because GPS is screwed
+
+      // set command echo
+      char c_echo[] = "ST";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // SIM ENABLE command -> allow simulation mode to be activated
+    else if (strncmp(rx_string, "CMD,3174,SIM,ENABLE", 19) == 0)
+    {
+      // set command echo
+      char c_echo[] = "SIMENABLE";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // SIM ACTIVATE command -> turn simulation mode on
+    else if (strncmp(rx_string, "CMD,3174,SIM,ACTIVATE", 21) == 0)
+    {
+      // check that simulation mode has been activated
+      if (simulation_pre == 1)
+      {
+        // make first simulated pressure value match actual value
+        simulated_pressure = global_mission_data.PRESSURE;
+        // set command echo
+        char c_echo[] = "SIMACT";
+        strcpy(global_mission_data.CMD_ECHO, c_echo);
+      }
+    }
+    // SIM DISABLE command -> turn simulation mode off
+    else if (strncmp(rx_string, "CMD,3174,SIM,DISABLE", 20) == 0)
+    {
+      // set command echo
+      char c_echo[] = "SIMDIS";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // SIMP command -> add simulated pressure data
+    else if (strncmp(rx_string, "CMD,3174,SIMP,", 14) == 0)
+    {
+      // parse inputted pressure data
+      char *pressure_str = rx_string + 14;
+      char *str_end;
+      long pressure_pa = atof(rx_string + 14);
+      // if (str_end == pressure_str || *str_end != '\0')
+      // it wasn't a valid number
+      // set simulated pressure to parsed value
+      simulated_pressure = pressure_pa;
+
+      // set command echo
+      char c_echo[] = "SIMP";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // CAL command -> calibrate altitude
+    else if (strncmp(rx_string, "CMD,3174,CAL", 12) == 0)
+    {
+      // set command echo
+      char c_echo[] = "CAL";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // MEC WIRE ON command -> actuate (servos?)
+    else if (strncmp(rx_string, "CMD,3174,MEC,WIRE,ON", 20) == 0)
+    {
+      // activate MEC command
+    }
+    // MEC WIRE OFF command -> stop actuations
+    else if (strncmp(rx_string, "CMD,3174,MEC,WIRE,OFF", 21) == 0)
+    {
+      // turn off MEC command (servos for GNC?)
+    }
+
+    // clear command buffer
+    memset(rx_buff, 0, sizeof(rx_buff));
   }
   /* USER CODE END StartCamAndCommands */
 }
