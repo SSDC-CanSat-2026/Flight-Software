@@ -59,10 +59,8 @@ typedef struct {
     double geoid_seperation;
 }LC76G_gps_data;
 
-extern LC76G_gps_data gps_data;
-
 /* Define functions */
 void LC76G_init();
-void LC76G_read_data();
+LC76G_gps_data* LC76G_read_data();
 
 #endif /* _LC76G_H_ */

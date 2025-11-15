@@ -131,6 +131,6 @@ void LC76G_read_data(){
     // Free the allocated memory for the copy
     free(str_copy);
 
-    return 0;
+    return &gps_data;
 
 }

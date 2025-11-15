@@ -24,6 +24,7 @@
 #include "global.h"
 #include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
+#include "../../Drivers/LC76G/LC76G.h"         // GPS Module
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -1162,6 +1163,15 @@ void StartReadSensors(void const *argument)
       global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
       global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
       global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+
+      LC76G_gps_data* gps_data = LC76G_read_data();
+      global_mission_data.GPS_LATITUDE = gps_data->latitude;
+      global_mission_data.GPS_LONGITUDE = gps_data->longitude;
+      global_mission_data.GPS_ALTITUDE = gps_data->altitude;
+      global_mission_data.GPS_SATS = gps_data->num_sat_used;
+      
+      snprintf(global_mission_data.GPS_TIME, 9, "%02d:%02d:%02d",
+               gps_data->hours, gps_data->minutes, gps_data->seconds);
 
       RTC_TimeTypeDef sTime = {0};
       // Needed to unlock time registers
