@@ -24,6 +24,7 @@
 #include "global.h"
 #include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
+#include "../../Drivers/STUSB4500BJR/USB_PD_core.h" // USB PD controller
 #include "../../Drivers/LC76G/LC76G.h"         // GPS Module
 
 /* Private includes ----------------------------------------------------------*/
