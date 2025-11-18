@@ -1241,6 +1241,10 @@ void StartCamAndCommands(void const *argument)
       // set command echo in the global mission struct
       char c_echo[] = "CXON";
       strcpy(global_mission_data.CMD_ECHO, c_echo);
+      
+      // Turn on the cameras
+      HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(GPIOC, CAM1_CTRL_Pin, GPIO_PIN_SET);
     }
     // CX OFF command -> stop transmitting telemetry packets
     else if (strncmp(rx_string, "CMD,3174,CX,OFF", 15) == 0)
@@ -1248,6 +1252,10 @@ void StartCamAndCommands(void const *argument)
       // set command echo
       char c_echo[] = "CXOFF";
       strcpy(global_mission_data.CMD_ECHO, c_echo);
+
+      // Turn off the cameras
+      HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(GPIOC, CAM1_CTRL_Pin, GPIO_PIN_RESET);
     }
     // ST command -> set mission time
     else if (strncmp(rx_string, "CMD,3174,ST,", 12) == 0)

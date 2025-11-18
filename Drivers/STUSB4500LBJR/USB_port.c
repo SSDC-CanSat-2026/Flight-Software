@@ -27,12 +27,12 @@
 
 HAL_StatusTypeDef USB_init(I2C_HandleTypeDef *hi2c) {
 	uint8_t rx[3];
-	bool ret = true;
 	// Read from all the status registers to clear them at the start
 	uint8_t alert_addr_start = 0x0B;
-	for (i=0;i<=12;i++) /* clear ALERT Status */
+	HAL_StatusTypeDef status;
+	for (int i=0;i<=12;i++) /* clear ALERT Status */
 	{
-		HAL_StatusTypeDef status = HAL_I2C_Mem_Read(hi2c, STUSB4500_addr_r, alert_addr_start+i, I2C_MEMADD_SIZE_8BIT, rx, 1, HAL_MAX_DELAY);  // clear ALERT Status
+		status = HAL_I2C_Mem_Read(hi2c, STUSB4500_addr_r, alert_addr_start+i, I2C_MEMADD_SIZE_8BIT, rx, 1, HAL_MAX_DELAY);  // clear ALERT Status
 		if(status != HAL_OK) {
 			return status;
 		}
