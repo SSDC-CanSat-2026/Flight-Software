@@ -12,8 +12,8 @@
 #include <stdint.h>
 #include "USBPD_spec_defines.h"
 
-void USB_init();
-void USB_SW_reset();
-
+HAL_StatusTypeDef USB_init(I2C_HandleTypeDef *hi2c);
+HAL_StatusTypeDef Soft_Reset(I2C_HandleTypeDef *hi2c);
+HAL_StatusTypeDef Set_PDOs(I2C_HandleTypeDef *hi2c);
 
 #endif /* STUSB4500LBJR_USB_PORT_H_ */
