@@ -10,7 +10,6 @@
 
 #include "stm32g4xx_hal.h"
 #include <stdint.h>
-#include "USBPD_spec_defines.h"
 
 HAL_StatusTypeDef USB_init(I2C_HandleTypeDef *hi2c);
 HAL_StatusTypeDef Soft_Reset(I2C_HandleTypeDef *hi2c);
