@@ -24,7 +24,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "global.h"
+#include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
+#include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
+#include "../../Drivers/STUSB4500BJR/USB_port.h" // USB PD controller
+#include "../../Drivers/LC76G/LC76G.h"         // GPS Module
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -1154,10 +1158,166 @@ void StartReadSensors(void const * argument)
 void StartReadCommands(void const * argument)
 {
   /* USER CODE BEGIN StartReadCommands */
-  /* Infinite loop */
-  for(;;)
+  for (;;)
   {
-    osDelay(1);
+	// do interrupts have to be enabled for this? they are in the previous project
+
+	// i honestly dk if this is peak performance tbh
+	// something tells me we could just have a char array to begin with but i would wanna
+	// wait until we can test to make changes for sure
+	uint8_t command_buffer[CMD_BUFFER_LEN];
+	HAL_UART_Receive_IT(&huart3, command_buffer, CMD_BUFFER_LEN);
+
+	char *char_arr = (char *)command_buffer;
+	char rx_string[CMD_BUFFER_LEN];
+
+	strncpy(rx_string, char_arr, CMD_BUFFER_LEN);
+	if (strncmp(rx_string, "CMD,3174,CX,ON", 14) == 0)
+	{
+	  // set command echo in the global mission struct
+	  char c_echo[] = "CXON";
+	  if (osSemaphoreAcquire(globalDataHandle, 00) != osOK) {
+	  continue; // It is non-critical that this is executed immediately
+				  // and the command can be sent again
+	  }
+	  strcpy(global_mission_data.CMD_ECHO, c_echo);
+	  osSemaphoreRelease(globalDataHandle);
+
+	  // Turn on the cameras
+	  HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_SET);
+	  HAL_GPIO_WritePin(GPIOC, CAM1_CTRL_Pin, GPIO_PIN_SET);
+	}
+	// CX OFF command -> stop transmitting telemetry packets
+	else if (strncmp(rx_string, "CMD,3174,CX,OFF", 15) == 0)
+	{
+	  // set command echo
+	  char c_echo[] = "CXOFF";
+	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
+		  continue; // It is non-critical that this is executed immediately
+					  // and the command can be sent again
+	  }
+	  strcpy(global_mission_data.CMD_ECHO, c_echo);
+	  osSemaphoreRelease(globalDataHandle);
+
+	  // Turn off the cameras
+	  HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_WritePin(GPIOC, CAM1_CTRL_Pin, GPIO_PIN_RESET);
+	}
+	// ST command -> set mission time
+	else if (strncmp(rx_string, "CMD,3174,ST,", 12) == 0)
+	{
+	  // parse the timestamp to set to
+	  char arg[9];
+	  char *time_str = rx_string + 12;
+	  strncpy(arg, time_str, 9);
+
+	  // removed this code because GPS is screwed
+
+	  // set command echo
+	  char c_echo[] = "ST";
+	  // Request semaphore access
+	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
+		  continue; // It is non-critical that this is executed immediately
+					  // and the command can be sent again
+	  }
+	  strcpy(global_mission_data.CMD_ECHO, c_echo);
+	  osSemaphoreRelease(globalDataHandle);
+	}
+	// SIM ENABLE command -> allow simulation mode to be activated
+	else if (strncmp(rx_string, "CMD,3174,SIM,ENABLE", 19) == 0)
+	{
+	  // set command echo
+	  char c_echo[] = "SIMENABLE";
+	  // Request semaphore access
+	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
+		  continue; // It is non-critical that this is executed immediately
+					  // and the command can be sent again
+	  }
+	  strcpy(global_mission_data.CMD_ECHO, c_echo);
+	  osSemaphoreAcquire(globalDataHandle);
+	}
+	// SIM ACTIVATE command -> turn simulation mode on
+	else if (strncmp(rx_string, "CMD,3174,SIM,ACTIVATE", 21) == 0)
+	{
+	  // check that simulation mode has been activated
+	  if (simulation_pre == 1)
+	  {
+		// make first simulated pressure value match actual value
+		// Request semaphore access
+		  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
+			  continue; // It is non-critical that this is executed immediately
+						  // and the command can be sent again
+		  }
+		simulated_pressure = global_mission_data.PRESSURE;
+		// set command echo
+		char c_echo[] = "SIMACT";
+		strcpy(global_mission_data.CMD_ECHO, c_echo);
+		osSemaphoreRelease(globalDataHandle);
+	  }
+	}
+	// SIM DISABLE command -> turn simulation mode off
+	else if (strncmp(rx_string, "CMD,3174,SIM,DISABLE", 20) == 0)
+	{
+	  // set command echo
+	  char c_echo[] = "SIMDIS";
+	  // Request semaphore access
+	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
+		  continue; // It is non-critical that this is executed immediately
+					  // and the command can be sent again
+	  }
+	  strcpy(global_mission_data.CMD_ECHO, c_echo);
+	  osSemaphoreRelease(globalDataHandle);
+	}
+	// SIMP command -> add simulated pressure data
+	else if (strncmp(rx_string, "CMD,3174,SIMP,", 14) == 0)
+	{
+	  // parse inputted pressure data
+	  char *pressure_str = rx_string + 14;
+	  char *str_end;
+	  long pressure_pa = atof(rx_string + 14);
+	  // if (str_end == pressure_str || *str_end != '\0')
+	  // it wasn't a valid number
+	  // set simulated pressure to parsed value
+	  simulated_pressure = pressure_pa;
+
+	  // set command echo
+	  char c_echo[] = "SIMP";
+	  // Request semaphore access
+	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
+		  continue; // It is non-critical that this is executed immediately
+					  // and the command can be sent again
+	  }
+	  strcpy(global_mission_data.CMD_ECHO, c_echo);
+	  osSemaphoreRelease(globalDataHandle);
+	}
+	// CAL command -> calibrate altitude
+	else if (strncmp(rx_string, "CMD,3174,CAL", 12) == 0)
+	{
+	  // set command echo
+	  char c_echo[] = "CAL";
+	  // Request semaphore access
+	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
+		  continue; // It is non-critical that this is executed immediately
+					  // and the command can be sent again
+	  }
+	  strcpy(global_mission_data.CMD_ECHO, c_echo);
+	  osSemaphoreAcquire(globalDatahandle);
+	}
+	// MEC WIRE ON command -> actuate (servos?)
+	else if (strncmp(rx_string, "CMD,3174,MEC,WIRE,ON", 20) == 0)
+	{
+	  // activate MEC command
+	}
+	// MEC WIRE OFF command -> stop actuations
+	else if (strncmp(rx_string, "CMD,3174,MEC,WIRE,OFF", 21) == 0)
+	{
+	  // turn off MEC command (servos for GNC?)
+		// This will likely be used for either the Container Separation system
+		/// or for the egg deployment system.
+	}
+
+	// clear command buffer
+	memset(rx_buff, 0, sizeof(rx_buff));
   }
   /* USER CODE END StartReadCommands */
 }
