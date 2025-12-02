@@ -1144,7 +1144,89 @@ void StartReadSensors(void const * argument)
   MX_USB_Device_Init();
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
+  for (;;)
+  {
+    if (xSemaphoreTake(data_mutex, (TickType_t)100) == pdTRUE)
+    {
+      // #1 PRIORITY: make sure mutex unlocks no matter what!!!!
 
+      // -> if a HIGHER priority task attempts to access a locked resource,
+      // the LOCKING thread assumes the priority of the resource trying to
+      // take it
+
+      /*
+       * global_mission_data.MODE, global_mission_data.CMD_ECHO,
+       * and global_mission_data.PACKET_COUNT
+       * is dealt with in readCommands.
+       */
+
+      MS5607Readings MS5607_Data = MS5607ReadValues();
+      if (global_mission_data.MODE == 'F')
+      { // In Flight Mode
+        global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
+      }
+      else
+      { // In Simulation Mode and need to read from the CSV instead.
+        // TODO
+      }
+      global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
+
+      global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
+      determineState(global_mission_data.ALTITUDE);
+
+      ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+      global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
+      global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
+      global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+
+      global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
+      global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
+      global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+
+      LC76G_gps_data* gps_data = LC76G_read_data();
+      global_mission_data.GPS_LATITUDE = gps_data->latitude;
+      global_mission_data.GPS_LONGITUDE = gps_data->longitude;
+      global_mission_data.GPS_ALTITUDE = gps_data->altitude;
+      global_mission_data.GPS_SATS = gps_data->num_sat_used;
+
+      snprintf(global_mission_data.GPS_TIME, 9, "%02d:%02d:%02d",
+               gps_data->hours, gps_data->minutes, gps_data->seconds);
+
+      RTC_TimeTypeDef sTime = {0};
+      // Needed to unlock time registers
+      RTC_DateTypeDef sDate = {0};
+
+      if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
+      {
+        Error_Handler();
+      }
+
+      // Needed to unlock time registers
+      if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
+      {
+        Error_Handler();
+      }
+
+      snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
+               sTime.Hours, sTime.Minutes, sTime.Seconds);
+
+      /*
+       * Get Voltage and Current from Magnetometer
+       */
+
+      /*
+       * Get GPS information from GPS
+       */
+
+      // Relinquish access to the global_mission_data struct
+      xSemaphoreGive(data_mutex);
+    }
+    else
+    {
+      // semaphore could not be taken due to someone else using it or smth
+      // probably jsut do nothing here
+    }
+  }
   /* USER CODE END 5 */
 }
 
