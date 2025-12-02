@@ -85,6 +85,8 @@ void Error_Handler(void);
 #define CLK_32k_GPIO_Port GPIOA
 #define SERVO_PWM4_Pin GPIO_PIN_3
 #define SERVO_PWM4_GPIO_Port GPIOA
+#define DEBUG_0_Pin GPIO_PIN_4
+#define DEBUG_0_GPIO_Port GPIOA
 #define CAM0_CTRL_Pin GPIO_PIN_5
 #define CAM0_CTRL_GPIO_Port GPIOA
 #define SERVO_PWM0_Pin GPIO_PIN_6
@@ -111,6 +113,10 @@ void Error_Handler(void);
 #define ENC1_A_GPIO_Port GPIOC
 #define ENC1_B_Pin GPIO_PIN_7
 #define ENC1_B_GPIO_Port GPIOC
+#define DEBUG_1_Pin GPIO_PIN_9
+#define DEBUG_1_GPIO_Port GPIOA
+#define DEBUG_2_Pin GPIO_PIN_10
+#define DEBUG_2_GPIO_Port GPIOA
 #define SWDIO_Pin GPIO_PIN_13
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
