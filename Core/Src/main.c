@@ -1165,7 +1165,7 @@ void StartReadSensors(void const *argument)
       global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
       global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
 
-      LC76G_gps_data* gps_data = LC76G_read_data();
+      LC76G_gps_data* gps_data = LC76G_read_data(&huart5);
       global_mission_data.GPS_LATITUDE = gps_data->lat;
       global_mission_data.GPS_LONGITUDE = gps_data->lon;
       global_mission_data.GPS_ALTITUDE = gps_data->altitude;
