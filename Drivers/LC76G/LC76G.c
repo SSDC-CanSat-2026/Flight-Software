@@ -4,7 +4,7 @@
 #include <math.h>
 
 // Initialize global fields
-uint8_t gps_buffer[GPS_DMA_BUFFER_SIZE] = {0}; // ASCII character uses 8 bits.
+uint8_t gps_buffer[GPS_BUFFER_SIZE] = {0}; // ASCII character uses 8 bits.
 
 LC76G_gps_data gps_data;
 
@@ -36,8 +36,8 @@ void LC76G_init()
     }
 }
 
-void LC76G_read_data(){
-	HAL_UART_TRANSMIT(&huart5, gps_buffer, 512, TIMEOUT);
+LC76G_gps_data* LC76G_read_data(){
+	HAL_UART_Transmit(&huart5, gps_buffer, 512, TIMEOUT);
 
 	// Please see 2.2.2 GGA in "GNSS Protocol Guide LC67G"
 	// Ex: $GNGGA,040143.000,3149.334166,N,11706.941670,E,2,36,0.48,61.496,M,-0.335,M,,*58

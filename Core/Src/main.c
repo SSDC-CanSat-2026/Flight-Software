@@ -21,10 +21,10 @@
 #include "cmsis_os.h"
 #include "app_fatfs.h"
 #include "usb_device.h"
-#include "global.h"
+#include "../Inc/global.h"
 #include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
-#include "../../Drivers/STUSB4500BJR/USB_PD_core.h" // USB PD controller
+#include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
 #include "../../Drivers/LC76G/LC76G.h"         // GPS Module
 
 /* Private includes ----------------------------------------------------------*/
@@ -1166,13 +1166,13 @@ void StartReadSensors(void const *argument)
       global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
 
       LC76G_gps_data* gps_data = LC76G_read_data();
-      global_mission_data.GPS_LATITUDE = gps_data->latitude;
-      global_mission_data.GPS_LONGITUDE = gps_data->longitude;
+      global_mission_data.GPS_LATITUDE = gps_data->lat;
+      global_mission_data.GPS_LONGITUDE = gps_data->lon;
       global_mission_data.GPS_ALTITUDE = gps_data->altitude;
       global_mission_data.GPS_SATS = gps_data->num_sat_used;
       
       snprintf(global_mission_data.GPS_TIME, 9, "%02d:%02d:%02d",
-               gps_data->hours, gps_data->minutes, gps_data->seconds);
+               gps_data->time_H, gps_data->time_M, gps_data->time_S);
 
       RTC_TimeTypeDef sTime = {0};
       // Needed to unlock time registers
@@ -1325,7 +1325,7 @@ void StartCamAndCommands(void const *argument)
     }
 
     // clear command buffer
-    memset(rx_buff, 0, sizeof(rx_buff));
+    memset(rx_string, 0, sizeof(rx_string)); // Can someone double check if this is supposed to clear the command buffer?
   }
   /* USER CODE END StartCamAndCommands */
 }
@@ -1348,6 +1348,10 @@ void StartSendTelemetry(void const *argument)
 
     // create an empty buffer for the telemetry packet string
     char telemetry_string[200];
+
+    // Generic temporary variable for use in sprintf() calls, etc.
+    int str_len = 0;
+
     // fill the buffer with the first half of the packet
     str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d",
                       global_mission_data.TEAM_ID,      // team id (3174)
@@ -1369,14 +1373,10 @@ void StartSendTelemetry(void const *argument)
     // clear the buffer
     memset(telemetry_string, 0, sizeof(telemetry_string));
     // fill the buffer with the second half of the packet
-    str_len = sprintf(telemetry_string, ",%d,%d,%d,%.1f,%.1f,%.1f,%d,%s,%.1f,%.4f,%.4f,%d,%s",
+    str_len = sprintf(telemetry_string, ",%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
                       global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)
                       global_mission_data.ACCEL_P,                 // accelerometer pitch (degrees/s^2)
                       global_mission_data.ACCEL_Y,                 // accelerometer yaw (degrees/s^2)
-                      global_mission_data.MAG_R,                   // magnetometer roll
-                      global_mission_data.MAG_P,                   // magnetometer pitch
-                      global_mission_data.MAG_Y,                   // magnetometer yaw
-                      global_mission_data.AUTO_GYRO_ROTATION_RATE, // DELETE: auto-gyro rotation rate
                       global_mission_data.GPS_TIME,                // GPS time
                       global_mission_data.GPS_ALTITUDE,            // GPS (absolute) altitude (m)
                       global_mission_data.GPS_LATITUDE,            // GPS latitude

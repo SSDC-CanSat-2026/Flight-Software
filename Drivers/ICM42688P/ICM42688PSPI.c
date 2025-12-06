@@ -1,7 +1,6 @@
 #include "ICM42688PSPI.h"
 #include "stm32g4xx_hal.h"
 #include <stdint.h>
-#include "AccelerationCalculations.c"
 
 static SPI_HandleTypeDef *hspi;
 

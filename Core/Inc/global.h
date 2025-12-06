@@ -16,6 +16,13 @@
 #define CMD_BUFFER_LEN 22 //21 max, plus 1 for null
 
 // flags
+extern volatile uint8_t telemetry_enable;
+extern volatile uint8_t simulation_enable;
+extern volatile uint8_t gps_time_enable;
+extern volatile uint8_t is_calibrated;
+extern volatile uint8_t mec_wire_enable;
+extern volatile uint8_t simulation_pre;
+extern volatile double simulated_pressure;
 
 // struct
 /* WATCH FOR RACE CONDITIONS */
@@ -51,7 +58,7 @@ typedef struct
 
 	char CMD_ECHO[CMD_ECHO_LEN];
 
-	float ALTIDUDE_OFFSET;
+	float ALTITUDE_OFFSET;
 } Mission_Data;
 
 extern Mission_Data global_mission_data;
