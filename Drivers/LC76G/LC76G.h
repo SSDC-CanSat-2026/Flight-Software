@@ -2,7 +2,6 @@
 #define _LC76G_H_
 
 #include "stm32g4xx_hal.h"
-#include "uart_interrupt.h"
 
 #define TIMEOUT 5
 #define ARRAY_LEN(x)            (sizeof(x) / sizeof((x)[0]))
@@ -60,7 +59,7 @@ typedef struct {
 }LC76G_gps_data;
 
 /* Define functions */
-void LC76G_init();
-LC76G_gps_data* LC76G_read_data();
+void LC76G_init(UART_HandleTypeDef* huart);
+LC76G_gps_data* LC76G_read_data(UART_HandleTypeDef* huart);
 
 #endif /* _LC76G_H_ */

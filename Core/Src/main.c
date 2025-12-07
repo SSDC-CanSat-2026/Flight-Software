@@ -21,13 +21,10 @@
 #include "cmsis_os.h"
 #include "app_fatfs.h"
 #include "usb_device.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-#include "global.h"
+#include "../Inc/global.h"
 #include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
-#include "../../Drivers/STUSB4500BJR/USB_port.h" // USB PD controller
+#include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
 #include "../../Drivers/LC76G/LC76G.h"         // GPS Module
 /* USER CODE END Includes */
 
@@ -1065,14 +1062,14 @@ void StartReadSensors(void const * argument)
       global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
       global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
 
-      LC76G_gps_data* gps_data = LC76G_read_data();
-      global_mission_data.GPS_LATITUDE = gps_data->latitude;
-      global_mission_data.GPS_LONGITUDE = gps_data->longitude;
+      LC76G_gps_data* gps_data = LC76G_read_data(&huart5);
+      global_mission_data.GPS_LATITUDE = gps_data->lat;
+      global_mission_data.GPS_LONGITUDE = gps_data->lon;
       global_mission_data.GPS_ALTITUDE = gps_data->altitude;
       global_mission_data.GPS_SATS = gps_data->num_sat_used;
 
       snprintf(global_mission_data.GPS_TIME, 9, "%02d:%02d:%02d",
-               gps_data->hours, gps_data->minutes, gps_data->seconds);
+               gps_data->time_H, gps_data->time_M, gps_data->time_S);
 
       RTC_TimeTypeDef sTime = {0};
       // Needed to unlock time registers
@@ -1124,164 +1121,108 @@ void StartReadCommands(void const * argument)
   /* USER CODE BEGIN StartReadCommands */
   for (;;)
   {
-	// do interrupts have to be enabled for this? they are in the previous project
+    // do interrupts have to be enabled for this? they are in the previous project
 
-	// i honestly dk if this is peak performance tbh
-	// something tells me we could just have a char array to begin with but i would wanna
-	// wait until we can test to make changes for sure
-	uint8_t command_buffer[CMD_BUFFER_LEN];
-	HAL_UART_Receive_IT(&huart3, command_buffer, CMD_BUFFER_LEN);
+    // i honestly dk if this is peak performance tbh
+    // something tells me we could just have a char array to begin with but i would wanna
+    // wait until we can test to make changes for sure
+    uint8_t command_buffer[CMD_BUFFER_LEN];
+    HAL_UART_Receive_IT(&huart3, command_buffer, CMD_BUFFER_LEN);
 
-	char *char_arr = (char *)command_buffer;
-	char rx_string[CMD_BUFFER_LEN];
+    char *char_arr = (char *)command_buffer;
+    char rx_string[CMD_BUFFER_LEN];
 
-	strncpy(rx_string, char_arr, CMD_BUFFER_LEN);
-	if (strncmp(rx_string, "CMD,3174,CX,ON", 14) == 0)
-	{
-	  // set command echo in the global mission struct
-	  char c_echo[] = "CXON";
-	  if (osSemaphoreAcquire(globalDataHandle, 00) != osOK) {
-	  continue; // It is non-critical that this is executed immediately
-				  // and the command can be sent again
-	  }
-	  strcpy(global_mission_data.CMD_ECHO, c_echo);
-	  osSemaphoreRelease(globalDataHandle);
+    strncpy(rx_string, char_arr, CMD_BUFFER_LEN);
+    if (strncmp(rx_string, "CMD,3174,CX,ON", 14) == 0)
+    {
+      // set command echo in the global mission struct
+      char c_echo[] = "CXON";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // CX OFF command -> stop transmitting telemetry packets
+    else if (strncmp(rx_string, "CMD,3174,CX,OFF", 15) == 0)
+    {
+      // set command echo
+      char c_echo[] = "CXOFF";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // ST command -> set mission time
+    else if (strncmp(rx_string, "CMD,3174,ST,", 12) == 0)
+    {
+      // parse the timestamp to set to
+      char arg[9];
+      char *time_str = rx_string + 12;
+      strncpy(arg, time_str, 9);
 
-	  // Turn on the cameras
-	  HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_SET);
-	  HAL_GPIO_WritePin(GPIOC, CAM1_CTRL_Pin, GPIO_PIN_SET);
-	}
-	// CX OFF command -> stop transmitting telemetry packets
-	else if (strncmp(rx_string, "CMD,3174,CX,OFF", 15) == 0)
-	{
-	  // set command echo
-	  char c_echo[] = "CXOFF";
-	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
-		  continue; // It is non-critical that this is executed immediately
-					  // and the command can be sent again
-	  }
-	  strcpy(global_mission_data.CMD_ECHO, c_echo);
-	  osSemaphoreRelease(globalDataHandle);
+      // removed this code because GPS is screwed
 
-	  // Turn off the cameras
-	  HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_RESET);
-	  HAL_GPIO_WritePin(GPIOC, CAM1_CTRL_Pin, GPIO_PIN_RESET);
-	}
-	// ST command -> set mission time
-	else if (strncmp(rx_string, "CMD,3174,ST,", 12) == 0)
-	{
-	  // parse the timestamp to set to
-	  char arg[9];
-	  char *time_str = rx_string + 12;
-	  strncpy(arg, time_str, 9);
+      // set command echo
+      char c_echo[] = "ST";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // SIM ENABLE command -> allow simulation mode to be activated
+    else if (strncmp(rx_string, "CMD,3174,SIM,ENABLE", 19) == 0)
+    {
+      // set command echo
+      char c_echo[] = "SIMENABLE";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // SIM ACTIVATE command -> turn simulation mode on
+    else if (strncmp(rx_string, "CMD,3174,SIM,ACTIVATE", 21) == 0)
+    {
+      // check that simulation mode has been activated
+      if (simulation_pre == 1)
+      {
+        // make first simulated pressure value match actual value
+        simulated_pressure = global_mission_data.PRESSURE;
+        // set command echo
+        char c_echo[] = "SIMACT";
+        strcpy(global_mission_data.CMD_ECHO, c_echo);
+      }
+    }
+    // SIM DISABLE command -> turn simulation mode off
+    else if (strncmp(rx_string, "CMD,3174,SIM,DISABLE", 20) == 0)
+    {
+      // set command echo
+      char c_echo[] = "SIMDIS";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // SIMP command -> add simulated pressure data
+    else if (strncmp(rx_string, "CMD,3174,SIMP,", 14) == 0)
+    {
+      // parse inputted pressure data
+      char *pressure_str = rx_string + 14;
+      char *str_end;
+      long pressure_pa = atof(rx_string + 14);
+      // if (str_end == pressure_str || *str_end != '\0')
+      // it wasn't a valid number
+      // set simulated pressure to parsed value
+      simulated_pressure = pressure_pa;
 
-	  // removed this code because GPS is screwed
+      // set command echo
+      char c_echo[] = "SIMP";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // CAL command -> calibrate altitude
+    else if (strncmp(rx_string, "CMD,3174,CAL", 12) == 0)
+    {
+      // set command echo
+      char c_echo[] = "CAL";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // MEC WIRE ON command -> actuate (servos?)
+    else if (strncmp(rx_string, "CMD,3174,MEC,WIRE,ON", 20) == 0)
+    {
+      // activate MEC command
+    }
+    // MEC WIRE OFF command -> stop actuations
+    else if (strncmp(rx_string, "CMD,3174,MEC,WIRE,OFF", 21) == 0)
+    {
+      // turn off MEC command (servos for GNC?)
+    }
 
-	  // set command echo
-	  char c_echo[] = "ST";
-	  // Request semaphore access
-	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
-		  continue; // It is non-critical that this is executed immediately
-					  // and the command can be sent again
-	  }
-	  strcpy(global_mission_data.CMD_ECHO, c_echo);
-	  osSemaphoreRelease(globalDataHandle);
-	}
-	// SIM ENABLE command -> allow simulation mode to be activated
-	else if (strncmp(rx_string, "CMD,3174,SIM,ENABLE", 19) == 0)
-	{
-	  // set command echo
-	  char c_echo[] = "SIMENABLE";
-	  // Request semaphore access
-	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
-		  continue; // It is non-critical that this is executed immediately
-					  // and the command can be sent again
-	  }
-	  strcpy(global_mission_data.CMD_ECHO, c_echo);
-	  osSemaphoreAcquire(globalDataHandle);
-	}
-	// SIM ACTIVATE command -> turn simulation mode on
-	else if (strncmp(rx_string, "CMD,3174,SIM,ACTIVATE", 21) == 0)
-	{
-	  // check that simulation mode has been activated
-	  if (simulation_pre == 1)
-	  {
-		// make first simulated pressure value match actual value
-		// Request semaphore access
-		  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
-			  continue; // It is non-critical that this is executed immediately
-						  // and the command can be sent again
-		  }
-		simulated_pressure = global_mission_data.PRESSURE;
-		// set command echo
-		char c_echo[] = "SIMACT";
-		strcpy(global_mission_data.CMD_ECHO, c_echo);
-		osSemaphoreRelease(globalDataHandle);
-	  }
-	}
-	// SIM DISABLE command -> turn simulation mode off
-	else if (strncmp(rx_string, "CMD,3174,SIM,DISABLE", 20) == 0)
-	{
-	  // set command echo
-	  char c_echo[] = "SIMDIS";
-	  // Request semaphore access
-	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
-		  continue; // It is non-critical that this is executed immediately
-					  // and the command can be sent again
-	  }
-	  strcpy(global_mission_data.CMD_ECHO, c_echo);
-	  osSemaphoreRelease(globalDataHandle);
-	}
-	// SIMP command -> add simulated pressure data
-	else if (strncmp(rx_string, "CMD,3174,SIMP,", 14) == 0)
-	{
-	  // parse inputted pressure data
-	  char *pressure_str = rx_string + 14;
-	  char *str_end;
-	  long pressure_pa = atof(rx_string + 14);
-	  // if (str_end == pressure_str || *str_end != '\0')
-	  // it wasn't a valid number
-	  // set simulated pressure to parsed value
-	  simulated_pressure = pressure_pa;
-
-	  // set command echo
-	  char c_echo[] = "SIMP";
-	  // Request semaphore access
-	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
-		  continue; // It is non-critical that this is executed immediately
-					  // and the command can be sent again
-	  }
-	  strcpy(global_mission_data.CMD_ECHO, c_echo);
-	  osSemaphoreRelease(globalDataHandle);
-	}
-	// CAL command -> calibrate altitude
-	else if (strncmp(rx_string, "CMD,3174,CAL", 12) == 0)
-	{
-	  // set command echo
-	  char c_echo[] = "CAL";
-	  // Request semaphore access
-	  if (osSemaphoreAcquire(globalDataHandle, 500) != osOK) {
-		  continue; // It is non-critical that this is executed immediately
-					  // and the command can be sent again
-	  }
-	  strcpy(global_mission_data.CMD_ECHO, c_echo);
-	  osSemaphoreAcquire(globalDatahandle);
-	}
-	// MEC WIRE ON command -> actuate (servos?)
-	else if (strncmp(rx_string, "CMD,3174,MEC,WIRE,ON", 20) == 0)
-	{
-	  // activate MEC command
-	}
-	// MEC WIRE OFF command -> stop actuations
-	else if (strncmp(rx_string, "CMD,3174,MEC,WIRE,OFF", 21) == 0)
-	{
-	  // turn off MEC command (servos for GNC?)
-		// This will likely be used for either the Container Separation system
-		/// or for the egg deployment system.
-	}
-
-	// clear command buffer
-	memset(rx_buff, 0, sizeof(rx_buff));
+    // clear command buffer
+    memset(rx_string, 0, sizeof(rx_string)); // Can someone double check if this is supposed to clear the command buffer?
   }
   /* USER CODE END StartReadCommands */
 }
@@ -1305,6 +1246,8 @@ void StartSendTelemetry(void const * argument)
     // create an empty buffer for the telemetry packet string
     char telemetry_string[200];
 
+    // Generic temporary variable for use in sprintf() calls, etc.
+    int str_len = 0;
     // Request semaphore access
     if (osSemaphoreAcquire(globalDataHandle, 100) != osOK) {
     	continue; // Until we can acquire a lock on the data, we do not want to read from it
@@ -1331,14 +1274,10 @@ void StartSendTelemetry(void const * argument)
     // clear the buffer
     memset(telemetry_string, 0, sizeof(telemetry_string));
     // fill the buffer with the second half of the packet
-    str_len = sprintf(telemetry_string, ",%d,%d,%d,%.1f,%.1f,%.1f,%d,%s,%.1f,%.4f,%.4f,%d,%s",
+    str_len = sprintf(telemetry_string, ",%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
                       global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)
                       global_mission_data.ACCEL_P,                 // accelerometer pitch (degrees/s^2)
                       global_mission_data.ACCEL_Y,                 // accelerometer yaw (degrees/s^2)
-                      global_mission_data.MAG_R,                   // magnetometer roll
-                      global_mission_data.MAG_P,                   // magnetometer pitch
-                      global_mission_data.MAG_Y,                   // magnetometer yaw
-                      global_mission_data.AUTO_GYRO_ROTATION_RATE, // DELETE: auto-gyro rotation rate
                       global_mission_data.GPS_TIME,                // GPS time
                       global_mission_data.GPS_ALTITUDE,            // GPS (absolute) altitude (m)
                       global_mission_data.GPS_LATITUDE,            // GPS latitude

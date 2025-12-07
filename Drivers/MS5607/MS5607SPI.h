@@ -37,7 +37,7 @@ extern "C"
 #endif
 
 #include "stm32g4xx_hal.h"
-#include "ICM42688P/ICM42688PSPI.h"
+#include "../ICM42688P/ICM42688PSPI.h"
 #include <math.h>
 #include <string.h>
 #include <global.h>
@@ -149,12 +149,24 @@ extern "C"
   Temperature - Celcius - double
   */
 
+
   // https://www.weather.gov/media/epz/wxcalc/pressureAltitude.pdf
   // The altitude equation is for absolute altitude.
-  // calibraing : 1 = True, 0 = False
-
+  // calibrating : 1 = True, 0 = False
   // pressure should be input in kilopascals!!
+
+  /**
+   * @brief  Get altitude from pressure
+   * @param  Pressue in kilopascals.
+   * @retval None
+   */
   float calculateAltitude(double pressure);
+
+  /**
+   * @brief  Get absolute altitude from pressure
+   * @param  Pressue in kilopascals.
+   * @retval None
+   */
   float calculate_abs_altitude(double pressure);
 
 #ifdef __cplusplus

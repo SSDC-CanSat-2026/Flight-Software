@@ -1,8 +1,12 @@
-.settings/language.settings.xml
 *.o
 *.su
 *.mk
 *.d
 *.cyclo
 *.list
+Debug/makefile
+Debug/SSDC CanSat 25-26.elf
+Debug/SSDC CanSat 25-26.map
+/.settings
+.settings/stm32cubeide.project.prefs
 .settings/language.settings.xml
