@@ -59,26 +59,22 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define STAT_BKUP_Pin GPIO_PIN_13
-#define STAT_BKUP_GPIO_Port GPIOC
 #define OSC32_IN_Pin GPIO_PIN_14
 #define OSC32_IN_GPIO_Port GPIOC
 #define OSC32_OUT_Pin GPIO_PIN_15
 #define OSC32_OUT_GPIO_Port GPIOC
-#define CHG_STAT2_Pin GPIO_PIN_0
-#define CHG_STAT2_GPIO_Port GPIOF
-#define CHG_STAT1_Pin GPIO_PIN_1
-#define CHG_STAT1_GPIO_Port GPIOF
-#define EN_5V_Pin GPIO_PIN_2
-#define EN_5V_GPIO_Port GPIOC
+#define DEBUG_0_Pin GPIO_PIN_2
+#define DEBUG_0_GPIO_Port GPIOC
+#define DEBUG_1_Pin GPIO_PIN_3
+#define DEBUG_1_GPIO_Port GPIOC
+#define DEBUG_2_Pin GPIO_PIN_0
+#define DEBUG_2_GPIO_Port GPIOA
 #define GPS_1PPS_Pin GPIO_PIN_1
 #define GPS_1PPS_GPIO_Port GPIOA
 #define CLK_32k_Pin GPIO_PIN_2
 #define CLK_32k_GPIO_Port GPIOA
 #define SERVO_PWM4_Pin GPIO_PIN_3
 #define SERVO_PWM4_GPIO_Port GPIOA
-#define DEBUG_0_Pin GPIO_PIN_4
-#define DEBUG_0_GPIO_Port GPIOA
 #define CAM0_CTRL_Pin GPIO_PIN_5
 #define CAM0_CTRL_GPIO_Port GPIOA
 #define SERVO_PWM0_Pin GPIO_PIN_6
@@ -99,10 +95,6 @@ void Error_Handler(void);
 #define SD_nCS_GPIO_Port GPIOB
 #define BMP_nCS_Pin GPIO_PIN_12
 #define BMP_nCS_GPIO_Port GPIOB
-#define DEBUG_1_Pin GPIO_PIN_9
-#define DEBUG_1_GPIO_Port GPIOA
-#define DEBUG_2_Pin GPIO_PIN_10
-#define DEBUG_2_GPIO_Port GPIOA
 #define SWDIO_Pin GPIO_PIN_13
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
