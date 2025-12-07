@@ -69,30 +69,22 @@ void Error_Handler(void);
 #define CHG_STAT2_GPIO_Port GPIOF
 #define CHG_STAT1_Pin GPIO_PIN_1
 #define CHG_STAT1_GPIO_Port GPIOF
-#define ENC0_A_Pin GPIO_PIN_0
-#define ENC0_A_GPIO_Port GPIOC
-#define ENC0_B_Pin GPIO_PIN_1
-#define ENC0_B_GPIO_Port GPIOC
 #define EN_5V_Pin GPIO_PIN_2
 #define EN_5V_GPIO_Port GPIOC
-#define VUSB_Pin GPIO_PIN_3
-#define VUSB_GPIO_Port GPIOC
-#define ENC1_Z_Pin GPIO_PIN_0
-#define ENC1_Z_GPIO_Port GPIOA
 #define GPS_1PPS_Pin GPIO_PIN_1
 #define GPS_1PPS_GPIO_Port GPIOA
 #define CLK_32k_Pin GPIO_PIN_2
 #define CLK_32k_GPIO_Port GPIOA
 #define SERVO_PWM4_Pin GPIO_PIN_3
 #define SERVO_PWM4_GPIO_Port GPIOA
+#define DEBUG_0_Pin GPIO_PIN_4
+#define DEBUG_0_GPIO_Port GPIOA
 #define CAM0_CTRL_Pin GPIO_PIN_5
 #define CAM0_CTRL_GPIO_Port GPIOA
 #define SERVO_PWM0_Pin GPIO_PIN_6
 #define SERVO_PWM0_GPIO_Port GPIOA
 #define SERVO_PWM1_Pin GPIO_PIN_7
 #define SERVO_PWM1_GPIO_Port GPIOA
-#define ENC0_Z_Pin GPIO_PIN_4
-#define ENC0_Z_GPIO_Port GPIOC
 #define CAM1_CTRL_Pin GPIO_PIN_5
 #define CAM1_CTRL_GPIO_Port GPIOC
 #define SERVO_PWM2_Pin GPIO_PIN_0
@@ -103,14 +95,14 @@ void Error_Handler(void);
 #define IMU_nCS_GPIO_Port GPIOB
 #define MAGEXT_nCS_Pin GPIO_PIN_10
 #define MAGEXT_nCS_GPIO_Port GPIOB
-#define MAG_nCS_Pin GPIO_PIN_11
-#define MAG_nCS_GPIO_Port GPIOB
+#define SD_nCS_Pin GPIO_PIN_11
+#define SD_nCS_GPIO_Port GPIOB
 #define BMP_nCS_Pin GPIO_PIN_12
 #define BMP_nCS_GPIO_Port GPIOB
-#define ENC1_A_Pin GPIO_PIN_6
-#define ENC1_A_GPIO_Port GPIOC
-#define ENC1_B_Pin GPIO_PIN_7
-#define ENC1_B_GPIO_Port GPIOC
+#define DEBUG_1_Pin GPIO_PIN_9
+#define DEBUG_1_GPIO_Port GPIOA
+#define DEBUG_2_Pin GPIO_PIN_10
+#define DEBUG_2_GPIO_Port GPIOA
 #define SWDIO_Pin GPIO_PIN_13
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
@@ -127,6 +119,8 @@ void Error_Handler(void);
 #define GPS_RST_GPIO_Port GPIOB
 #define USR_LED_Pin GPIO_PIN_7
 #define USR_LED_GPIO_Port GPIOB
+#define USBPD_RESET_Pin GPIO_PIN_9
+#define USBPD_RESET_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
