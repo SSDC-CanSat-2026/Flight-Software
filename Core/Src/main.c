@@ -943,45 +943,38 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, STAT_BKUP_Pin|EN_5V_Pin|CAM1_CTRL_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, DEBUG_0_Pin|DEBUG_1_Pin|CAM1_CTRL_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, DEBUG_0_Pin|CAM0_CTRL_Pin|DEBUG_1_Pin|DEBUG_2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, DEBUG_2_Pin|CAM0_CTRL_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, IMU_nCS_Pin|MAGEXT_nCS_Pin|SD_nCS_Pin|BMP_nCS_Pin
                           |GPS_RST_Pin|USR_LED_Pin|USBPD_RESET_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : STAT_BKUP_Pin EN_5V_Pin CAM1_CTRL_Pin */
-  GPIO_InitStruct.Pin = STAT_BKUP_Pin|EN_5V_Pin|CAM1_CTRL_Pin;
+  /*Configure GPIO pins : DEBUG_0_Pin DEBUG_1_Pin CAM1_CTRL_Pin */
+  GPIO_InitStruct.Pin = DEBUG_0_Pin|DEBUG_1_Pin|CAM1_CTRL_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : CHG_STAT2_Pin CHG_STAT1_Pin */
-  GPIO_InitStruct.Pin = CHG_STAT2_Pin|CHG_STAT1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  /*Configure GPIO pins : DEBUG_2_Pin CAM0_CTRL_Pin */
+  GPIO_InitStruct.Pin = DEBUG_2_Pin|CAM0_CTRL_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : CLK_32k_Pin XBEE_RST_Pin */
   GPIO_InitStruct.Pin = CLK_32k_Pin|XBEE_RST_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : DEBUG_0_Pin CAM0_CTRL_Pin DEBUG_1_Pin DEBUG_2_Pin */
-  GPIO_InitStruct.Pin = DEBUG_0_Pin|CAM0_CTRL_Pin|DEBUG_1_Pin|DEBUG_2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : IMU_nCS_Pin MAGEXT_nCS_Pin SD_nCS_Pin BMP_nCS_Pin
