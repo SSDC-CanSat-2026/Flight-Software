@@ -27,6 +27,9 @@
 
 HAL_StatusTypeDef USB_init(I2C_HandleTypeDef *hi2c) {
 	uint8_t rx[3];
+	// bool type does not exist w/o header. There is also no True or False keywords, use 1 and 0.
+	// _Bool ret = 1;  // Note that this variable is not used.
+
 	// Read from all the status registers to clear them at the start
 	uint8_t alert_addr_start = 0x0B;
 	HAL_StatusTypeDef status;
@@ -39,7 +42,7 @@ HAL_StatusTypeDef USB_init(I2C_HandleTypeDef *hi2c) {
 	}
 
 	// Set the number of PDOs to 2 (20V charging)
-	status = Set_PDOs(hi2c);
+	HAL_StatusTypeDef status = Set_PDOs(hi2c);
 	if (status != HAL_OK) {
 		return status;
 	}

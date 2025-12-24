@@ -88,7 +88,7 @@ BMM350_INTF_RET_TYPE BMM350_read_mag_data_interrupt(struct bmm350_dev* bmm350, s
 
     uint8_t data_ready_interrupt_status = 0;
 
-    int8_t result = bmm350_get_regs(BMM350_REG_INT_STATUS, &int_status, 1, &dev);
+    int8_t result = bmm350_get_regs(BMM350_REG_INT_STATUS, &data_ready_interrupt_status, 1, &bmm350);
 
     if (!(data_ready_interrupt_status & BMM350_DRDY_DATA_REG_MSK))
     {
