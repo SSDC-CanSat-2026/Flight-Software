@@ -332,13 +332,13 @@ void MS5607SetPressureOSR(MS5607OSRFactors pOSR)
 /*
   AltitudeCalculations.c START HERE
 */
-float const lower_altitude_threshold = 20.0;
+float const lower_altitude_threshold = 50.0;
 
 // Index is by seconds ago the value was calculated
 float altitude_history[] = {0, 0, 0};
 
 float max_altitude = 0.0;
-float apogee_base_ratio = 0.75; 
+float apogee_base_ratio = 0.80;
 float apogee_difference_ratio = 0.00;
 float const apogee_offset_height = 15.00;
 

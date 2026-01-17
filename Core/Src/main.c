@@ -1301,6 +1301,10 @@ void StartReadCommands(void const * argument)
     {
       // set command echo
       char c_echo[] = "CAL";
+
+      Mission_Data.STATE = "LAUNCH_PAD";
+      memset(altitude_history, 0, 3);
+
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
     // MEC WIRE ON command -> actuate (servos?)
