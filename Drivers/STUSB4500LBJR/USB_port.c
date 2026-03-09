@@ -21,27 +21,9 @@
 #define STUSB4500_addr_r 0x50 // Bit 0 is R/nW
 #define STUSB4500_addr_w 0x51
 
-// Define necessary PDO registers and PDO count reg
-#define DPM_PDO_NUMB	0x70
-#define DPM_SNK_PDO2_0	0x89
-#define DPM_SNK_PDO2_1	0x8A
-#define DPM_SNK_PDO2_2	0x8B
-#define DPM_SNK_PDO2_3	0x8C
-
-// values to place into PDO registers
-uint8_t NUM_PDOS		= 2;
-uint8_t NEW_PDO2_0		= 0x32;
-uint8_t DEFAULT_PDO2_1	= 0xB0;
-uint8_t DEFAULT_PDO2_2	= 0x04;
-uint8_t NEW_PDO2_3		= 0x04;
-
-// Registers to write for a software reset
-#define TX_HEADER_LOW	0x51
-#define PD_COMMAND_CTRL 0x1A
-
-// Commands to reset the IC
-uint8_t SOFT_RESET		= 0x0D;
-uint8_t SEND_COMMAND	= 0x26;
+uint8_t NUM_PDOS = 2;
+uint8_t SOFT_RESET = 0x0D;
+uint8_t SEND_COMMAND = 0x26;
 
 HAL_StatusTypeDef USB_init(I2C_HandleTypeDef *hi2c) {
 	uint8_t rx[3];
@@ -56,7 +38,7 @@ HAL_StatusTypeDef USB_init(I2C_HandleTypeDef *hi2c) {
 		}
 	}
 
-	// Set the number of PDOs to 2 (15V charging)
+	// Set the number of PDOs to 2 (20V charging)
 	status = Set_PDOs(hi2c);
 	if (status != HAL_OK) {
 		return status;
@@ -72,40 +54,16 @@ HAL_StatusTypeDef USB_init(I2C_HandleTypeDef *hi2c) {
 }
 
 HAL_StatusTypeDef Soft_Reset(I2C_HandleTypeDef *hi2c) {
-	HAL_StatusTypeDef status = HAL_I2C_Mem_Write(hi2c, STUSB4500_addr_w, TX_HEADER_LOW, I2C_MEMADD_SIZE_8BIT, &SOFT_RESET, 1, HAL_MAX_DELAY);
-	if (status != HAL_OK) {
-		return status;
-	}
-	status = HAL_I2C_Mem_Write(hi2c, STUSB4500_addr_w, PD_COMMAND_CTRL, I2C_MEMADD_SIZE_8BIT, &SEND_COMMAND, 1, HAL_MAX_DELAY);
+	uint8_t rx;
+
+	HAL_StatusTypeDef status = HAL_I2C_Mem_Write(hi2c, STUSB4500_addr_w, 0x51, I2C_MEMADD_SIZE_8BIT, &SOFT_RESET, 1, HAL_MAX_DELAY);
+	status = HAL_I2C_Mem_Write(hi2c, STUSB4500_addr_w, 0x1A, I2C_MEMADD_SIZE_8BIT, &SEND_COMMAND, 1, HAL_MAX_DELAY);
 
 	return status;
 }
 
-HAL_StatusTypeDef Set_PDOs(I2C_HandleTypeDef *hi2c) {
-	HAL_StatusTypeDef status = HAL_I2C_Mem_Write(hi2c, STUSB4500_addr_w, DPM_SNK_PDO2_0, I2C_MEMADD_SIZE_8BIT, &NEW_PDO2_0, 1, HAL_MAX_DELAY);
-	if (status != HAL_OK) {
-		return status;
-	}
+HAL_StatusTypeDef Set_PDOs(I2C_HandleTypeDef *hi2c) {\
+	HAL_StatusTypeDef status = HAL_I2C_Mem_Write(hi2c, STUSB4500_addr_w, 0x70, I2C_MEMADD_SIZE_8BIT, &NUM_PDOS, 1, HAL_MAX_DELAY);
 
-	status = HAL_I2C_Mem_Write(hi2c, STUSB4500_addr_w, DPM_SNK_PDO2_1, I2C_MEMADD_SIZE_8BIT, &DEFAULT_PDO2_1, 1, HAL_MAX_DELAY);
-	if (status != HAL_OK) {
-		return status;
-	}
-
-	status = HAL_I2C_Mem_Write(hi2c, STUSB4500_addr_w, DPM_SNK_PDO2_2, I2C_MEMADD_SIZE_8BIT, &DEFAULT_PDO2_2, 1, HAL_MAX_DELAY);
-	if (status != HAL_OK) {
-		return status;
-	}
-
-	status = HAL_I2C_Mem_Write(hi2c, STUSB4500_addr_w, DPM_SNK_PDO2_3, I2C_MEMADD_SIZE_8BIT, &NEW_PDO2_3, 1, HAL_MAX_DELAY);
-	if (status != HAL_OK) {
-		return status;
-	}
-
-	status = HAL_I2C_Mem_Write(hi2c, STUSB4500_addr_w, DPM_PDO_NUMB, I2C_MEMADD_SIZE_8BIT, &NUM_PDOS, 1, HAL_MAX_DELAY);
-	if (status != HAL_OK) {
-		return status;
-	}
-
-	return Soft_Reset(hi2c);
+	return status;
 }

@@ -21,6 +21,9 @@
 #include "cmsis_os.h"
 #include "app_fatfs.h"
 #include "usb_device.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 #include "../Inc/global.h"
 #include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
@@ -58,6 +61,7 @@ RTC_HandleTypeDef hrtc;
 
 SPI_HandleTypeDef hspi2;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim15;
 TIM_HandleTypeDef htim16;
@@ -93,6 +97,7 @@ static void MX_TIM3_Init(void);
 static void MX_TIM15_Init(void);
 static void MX_TIM16_Init(void);
 static void MX_TIM17_Init(void);
+static void MX_TIM1_Init(void);
 void StartReadSensors(void const * argument);
 void StartReadCommands(void const * argument);
 void StartSendTelemetry(void const * argument);
@@ -153,6 +158,7 @@ int main(void)
   if (MX_FATFS_Init() != APP_OK) {
     Error_Handler();
   }
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -229,16 +235,28 @@ void SystemClock_Config(void)
   */
   HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1);
 
+  /** Configure LSE Drive Capability
+  */
+  HAL_PWR_EnableBkUpAccess();
+  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSI48
-                              |RCC_OSCILLATORTYPE_LSI;
+                              |RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_LSE;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV1;
+  RCC_OscInitStruct.PLL.PLLN = 8;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -248,17 +266,17 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
   HAL_RCC_MCOConfig(RCC_MCO1, RCC_MCO1SOURCE_HSI, RCC_MCODIV_1);
-  HAL_RCCEx_EnableLSCO(RCC_LSCOSOURCE_LSI);
+  HAL_RCCEx_EnableLSCO(RCC_LSCOSOURCE_LSE);
 
   /** Enable the SYSCFG APB clock
   */
@@ -412,7 +430,7 @@ static void MX_I2C3_Init(void)
 
   /* USER CODE END I2C3_Init 1 */
   hi2c3.Instance = I2C3;
-  hi2c3.Init.Timing = 0x00503D58;
+  hi2c3.Init.Timing = 0x00C12166;
   hi2c3.Init.OwnAddress1 = 0;
   hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -534,17 +552,17 @@ static void MX_SPI2_Init(void)
   hspi2.Instance = SPI2;
   hspi2.Init.Mode = SPI_MODE_MASTER;
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_4BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi2.Init.CRCPolynomial = 7;
   hspi2.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi2.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi2.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   if (HAL_SPI_Init(&hspi2) != HAL_OK)
   {
     Error_Handler();
@@ -552,6 +570,88 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
 
   /* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 65535;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.BreakFilter = 0;
+  sBreakDeadTimeConfig.BreakAFMode = TIM_BREAK_AFMODE_INPUT;
+  sBreakDeadTimeConfig.Break2State = TIM_BREAK2_DISABLE;
+  sBreakDeadTimeConfig.Break2Polarity = TIM_BREAK2POLARITY_HIGH;
+  sBreakDeadTimeConfig.Break2Filter = 0;
+  sBreakDeadTimeConfig.Break2AFMode = TIM_BREAK_AFMODE_INPUT;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
 
 }
 
@@ -832,7 +932,7 @@ static void MX_UART5_Init(void)
 
   /* USER CODE END UART5_Init 1 */
   huart5.Instance = UART5;
-  huart5.Init.BaudRate = 115200;
+  huart5.Init.BaudRate = 9600;
   huart5.Init.WordLength = UART_WORDLENGTH_8B;
   huart5.Init.StopBits = UART_STOPBITS_1;
   huart5.Init.Parity = UART_PARITY_NONE;
@@ -948,24 +1048,24 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, DEBUG_0_Pin|DEBUG_1_Pin|CAM1_CTRL_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, STEP_DIR0_Pin|DEBUG_0_Pin|DEBUG_1_Pin|CAM0_CTRL_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, DEBUG_2_Pin|CAM0_CTRL_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, DEBUG_2_Pin|DRV_DIR0_Pin|CAM1_CTRL_Pin|GPS_WAKE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, IMU_nCS_Pin|MAGEXT_nCS_Pin|SD_nCS_Pin|BMP_nCS_Pin
-                          |GPS_RST_Pin|USR_LED_Pin|USBPD_RESET_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, IMU_nCS_Pin|SD_nCS_Pin|BMP_nCS_Pin|GPS_RST_Pin
+                          |USR_LED_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : DEBUG_0_Pin DEBUG_1_Pin CAM1_CTRL_Pin */
-  GPIO_InitStruct.Pin = DEBUG_0_Pin|DEBUG_1_Pin|CAM1_CTRL_Pin;
+  /*Configure GPIO pins : STEP_DIR0_Pin DEBUG_0_Pin DEBUG_1_Pin CAM0_CTRL_Pin */
+  GPIO_InitStruct.Pin = STEP_DIR0_Pin|DEBUG_0_Pin|DEBUG_1_Pin|CAM0_CTRL_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : DEBUG_2_Pin CAM0_CTRL_Pin */
-  GPIO_InitStruct.Pin = DEBUG_2_Pin|CAM0_CTRL_Pin;
+  /*Configure GPIO pins : DEBUG_2_Pin DRV_DIR0_Pin CAM1_CTRL_Pin GPS_WAKE_Pin */
+  GPIO_InitStruct.Pin = DEBUG_2_Pin|DRV_DIR0_Pin|CAM1_CTRL_Pin|GPS_WAKE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -977,10 +1077,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : IMU_nCS_Pin MAGEXT_nCS_Pin SD_nCS_Pin BMP_nCS_Pin
-                           GPS_RST_Pin USR_LED_Pin USBPD_RESET_Pin */
-  GPIO_InitStruct.Pin = IMU_nCS_Pin|MAGEXT_nCS_Pin|SD_nCS_Pin|BMP_nCS_Pin
-                          |GPS_RST_Pin|USR_LED_Pin|USBPD_RESET_Pin;
+  /*Configure GPIO pins : IMU_nCS_Pin SD_nCS_Pin BMP_nCS_Pin GPS_RST_Pin
+                           USR_LED_Pin */
+  GPIO_InitStruct.Pin = IMU_nCS_Pin|SD_nCS_Pin|BMP_nCS_Pin|GPS_RST_Pin
+                          |USR_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1018,30 +1118,30 @@ void StartReadSensors(void const * argument)
   /* Infinite loop */
   for (;;)
   {
-	int8_t num_tokens = osSemaphoreWait(globalDataHandle, 100);
-    if (num_tokens <= 0) {
-    	continue; // Semaphore is either unavailable or inputs are wrong
-    }
-    // #1 PRIORITY: make sure mutex unlocks no matter what!!!!
+    if (xSemaphoreTake(globalDataHandle, (TickType_t)100) == pdTRUE)
+    {
+      // #1 PRIORITY: make sure mutex unlocks no matter what!!!!
 
-    // -> if a HIGHER priority task attempts to access a locked resource,
-    // the LOCKING thread assumes the priority of the resource trying to
-    // take it
+      // -> if a HIGHER priority task attempts to access a locked resource,
+      // the LOCKING thread assumes the priority of the resource trying to
+      // take it
 
-    /*
-      * global_mission_data.MODE, global_mission_data.CMD_ECHO,
-      * and global_mission_data.PACKET_COUNT
-      * is dealt with in readCommands.
-      */
+      /*
+       * global_mission_data.MODE, global_mission_data.CMD_ECHO,
+       * and global_mission_data.PACKET_COUNT
+       * is dealt with in readCommands.
+       */
 
-    MS5607Readings MS5607_Data = MS5607ReadValues();
-    if (global_mission_data.MODE == 'F')
-    { // In Flight Mode
-      global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
-    }
-    else
-    { // In Simulation Mode and need to read from the CSV instead.
-      // TODO
+      MS5607Readings MS5607_Data = MS5607ReadValues();
+      if (global_mission_data.MODE == 'F')
+      { // In Flight Mode
+        global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
+      }
+      else
+      { // In Simulation Mode and need to read from the CSV instead.
+        // TODO
+      }
+      global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
       // I suggest we just have a normal variable that we store the most recent
       // simulated pressure value in, and each time we read the next SIMP command,
@@ -1093,12 +1193,14 @@ void StartReadSensors(void const * argument)
       * Get Voltage and Current from Magnetometer
       */
 
-    /*
-      * Get GPS information from GPS
-      */
-
-    // Relinquish access to the global_mission_data struct
-    osSemaphoreRelease(globalDataHandle);
+      // Relinquish access to the global_mission_data struct
+      xSemaphoreGive(globalDataHandle);
+    }
+    else
+    {
+      // semaphore could not be taken due to someone else using it or smth
+      // probably jsut do nothing here
+    }
   }
   /* USER CODE END 5 */
 }
@@ -1207,6 +1309,10 @@ void StartReadCommands(void const * argument)
     {
       // set command echo
       char c_echo[] = "CAL";
+
+      Mission_Data.STATE = "LAUNCH_PAD";
+      memset(altitude_history, 0, 3);
+
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
     // MEC WIRE ON command -> actuate (servos?)
@@ -1250,10 +1356,9 @@ void StartSendTelemetry(void const * argument)
     // Generic temporary variable for use in sprintf() calls, etc.
     uint16_t str_len = 0;
     // Request semaphore access
-    int8_t num_tokens = osSemaphoreWait(globalDataHandle, 100);
-	if (num_tokens <= 0) {
-		continue; // Semaphore is either unavailable or inputs are wrong
-	}
+    if (xSemaphoreTake(globalDataHandle, (TickType_t)100) == pdTRUE) {
+    	continue; // Until we can acquire a lock on the data, we do not want to read from it
+    }
 
     // fill the buffer with the first half of the packet
     str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d",
@@ -1292,7 +1397,7 @@ void StartSendTelemetry(void const * argument)
 
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
-    osSemaphoreRelease(globalDataHandle);
+    xSemaphoreGive(globalDataHandle);
 
     // exit the critical region once both packets have been sent
     taskEXIT_CRITICAL();

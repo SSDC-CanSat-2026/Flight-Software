@@ -1,4 +1,0 @@
-osThreadId readSensorsHandle;
-osThreadId camAndCommandsHandle;
-osThreadId sendTelemetryHandle;
-osThreadId guideNavCtrlHandle;
