@@ -1144,7 +1144,7 @@ void StartReadSensors(void const * argument)
       global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
       global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
-      determineState(global_mission_data.ALTITUDE);
+      determineState();
 
       ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
       global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
@@ -1264,7 +1264,7 @@ void StartReadCommands(void const * argument)
     else if (strncmp(rx_string, "CMD,3174,SIM,ACTIVATE", 21) == 0)
     {
       // check that simulation mode has been activated
-      if (simulation_pre == 1)
+      if (global_flags.simulation_pre == 1)
       {
         // make first simulated pressure value match actual value
         simulated_pressure = global_mission_data.PRESSURE;
@@ -1302,8 +1302,9 @@ void StartReadCommands(void const * argument)
       // set command echo
       char c_echo[] = "CAL";
 
-      Mission_Data.STATE = "LAUNCH_PAD";
-      memset(altitude_history, 0, 3);
+      char reset_state[] = "LAUNCH_PAD";
+      memcpy(global_mission_data.STATE, reset_state, sizeof(reset_state));
+      calibrateAltitudeHistory();
 
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
