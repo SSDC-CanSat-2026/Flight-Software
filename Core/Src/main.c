@@ -1399,7 +1399,7 @@ void StartSendTelemetry(void const * argument)
     UINT bytesWritten;
     FRESULT result;
 
-    result = f_open(&global_micro_sd_data.Fil, "CanSat_Data.csv", FA_WRITE | FA_OPEN_ALWAYS);
+    result = f_open(&global_micro_sd_data.Fil, "CanSat_Data_2026.csv", FA_WRITE | FA_OPEN_ALWAYS);
 
     f_lseek(&global_micro_sd_data.Fil, f_size(&global_micro_sd_data.Fil)); // move to end of file
     f_write(&global_micro_sd_data.Fil, telemetry_string, str_len, &bytesWritten);
