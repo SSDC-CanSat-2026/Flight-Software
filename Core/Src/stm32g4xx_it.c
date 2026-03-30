@@ -63,7 +63,7 @@ extern UART_HandleTypeDef huart3;
 extern TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN EV */
-
+extern uint16_t Timer1, Timer2; // For MicroSD driver.
 /* USER CODE END EV */
 
 /******************************************************************************/

@@ -10,6 +10,7 @@
 
 #include "stm32g4xx_hal.h"
 #include "string.h"
+#include "ff.h"
 
 #define STATE_TEXT_LEN 14 // 13 max, plus 1 for null char
 #define CMD_ECHO_LEN 10
@@ -61,7 +62,14 @@ typedef struct
 	float ALTITUDE_OFFSET;
 } Mission_Data;
 
-extern Mission_Data global_mission_data;
+typedef struct
+{
+	FATFS FatFs;
+	FIL Fil;
+} Micro_SD_Data;
+
+extern Mission_Data 	global_mission_data;
+extern Micro_SD_Data 	global_micro_sd_data;
 
 void init_mission_data(void);
 

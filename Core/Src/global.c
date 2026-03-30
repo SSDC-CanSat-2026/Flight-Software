@@ -16,7 +16,8 @@ volatile uint8_t simulation_enable = 0;
 volatile uint8_t simulation_pre = 0;
 volatile double simulated_pressure = 0.0;
 
-Mission_Data global_mission_data = {0};
+Mission_Data 	global_mission_data = {0};
+Micro_SD_Data	global_micro_sd_data;
 
 void init_mission_data(void)
 {
@@ -53,4 +54,13 @@ void init_mission_data(void)
 	strcpy(global_mission_data.CMD_ECHO, "CMD");
 
 	global_mission_data.ALTITUDE_OFFSET = 0.0;
+}
+
+int init_SD(void){
+
+	if(f_mount(&global_micro_sd_data.FatFs, "", 1) != FR_OK){
+		return 0;
+	}
+
+	return 1;
 }

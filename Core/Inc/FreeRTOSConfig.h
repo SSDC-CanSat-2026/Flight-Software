@@ -26,6 +26,7 @@
  *
  * 1 tab == 4 spaces!
  */
+#define configUSE_TICK_HOOK 1
 /* USER CODE END Header */
 
 #ifndef FREERTOS_CONFIG_H

@@ -427,3 +427,7 @@ void determineState(double altitude){
         }
     }
 }
+void calibrateAltitudeHistory(void){
+	memset(altitude_history, 0, 3); // Because you cannot access altitude_history from main.c
+}
+

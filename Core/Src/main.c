@@ -21,6 +21,7 @@
 #include "cmsis_os.h"
 #include "app_fatfs.h"
 #include "usb_device.h"
+extern uint16_t Timer1, Timer2;
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -129,7 +130,8 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  init_mission_data();
+  init_SD();
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -1100,7 +1102,12 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void vApplicationTickHook(void){
+	if(Timer1 > 0)
+		Timer1--;
+	if(Timer2 > 0)
+		Timer2--;
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartReadSensors */
@@ -1196,7 +1203,7 @@ void StartReadSensors(void const * argument)
     else
     {
       // semaphore could not be taken due to someone else using it or smth
-      // probably jsut do nothing here
+      // probably just do nothing here
     }
   }
   /* USER CODE END 5 */
@@ -1301,10 +1308,11 @@ void StartReadCommands(void const * argument)
     {
       // set command echo
       char c_echo[] = "CAL";
+      char new_state[]= "LAUNCH_PAD";
 
-      Mission_Data.STATE = "LAUNCH_PAD";
-      memset(altitude_history, 0, 3);
+      calibrateAltitudeHistory();
 
+      strcpy(global_mission_data.STATE, new_state);
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
     // MEC WIRE ON command -> actuate (servos?)
@@ -1387,8 +1395,17 @@ void StartSendTelemetry(void const * argument)
 
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
-    xSemaphoreGive(globalDataHandle);
 
+    UINT bytesWritten;
+    FRESULT result;
+
+    result = f_open(&global_micro_sd_data.Fil, "CanSat_Data.csv", FA_WRITE | FA_OPEN_ALWAYS);
+
+    f_lseek(&global_micro_sd_data.Fil, f_size(&global_micro_sd_data.Fil)); // move to end of file
+    f_write(&global_micro_sd_data.Fil, telemetry_string, str_len, &bytesWritten);
+    f_close(&global_micro_sd_data.Fil);
+
+    xSemaphoreGive(globalDataHandle);
     // exit the critical region once both packets have been sent
     taskEXIT_CRITICAL();
   }
