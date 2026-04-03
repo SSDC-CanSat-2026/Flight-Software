@@ -1399,11 +1399,17 @@ void StartSendTelemetry(void const * argument)
     UINT bytesWritten;
     FRESULT result;
 
-    result = f_open(&global_micro_sd_data.Fil, "CanSat_Data_2026.csv", FA_WRITE | FA_OPEN_ALWAYS);
+    if(global_micro_sd_data.successfullyMounted == 1){
+		result = f_open(&global_micro_sd_data.Fil, "CanSat_Data_2026.csv", FA_WRITE | FA_OPEN_ALWAYS);
 
-    f_lseek(&global_micro_sd_data.Fil, f_size(&global_micro_sd_data.Fil)); // move to end of file
-    f_write(&global_micro_sd_data.Fil, telemetry_string, str_len, &bytesWritten);
-    f_close(&global_micro_sd_data.Fil);
+		f_lseek(&global_micro_sd_data.Fil, f_size(&global_micro_sd_data.Fil)); // move to end of file
+		f_write(&global_micro_sd_data.Fil, telemetry_string, str_len, &bytesWritten);
+
+		char newLine[1] = {'\n'};
+		f_write(&global_micro_sd_data.Fil, newLine, 1, &bytesWritten);
+
+		f_close(&global_micro_sd_data.Fil);
+    }
 
     xSemaphoreGive(globalDataHandle);
     // exit the critical region once both packets have been sent

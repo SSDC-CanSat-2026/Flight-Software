@@ -56,11 +56,11 @@ void init_mission_data(void)
 	global_mission_data.ALTITUDE_OFFSET = 0.0;
 }
 
-int init_SD(void){
+void init_SD(void){
 
 	if(f_mount(&global_micro_sd_data.FatFs, "", 1) != FR_OK){
-		return 0;
+		global_micro_sd_data.successfullyMounted = 0;
 	}
 
-	return 1;
+	global_micro_sd_data.successfullyMounted = 1;;
 }
