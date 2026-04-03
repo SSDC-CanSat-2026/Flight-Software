@@ -1405,8 +1405,8 @@ void StartSendTelemetry(void const * argument)
 		f_lseek(&global_micro_sd_data.Fil, f_size(&global_micro_sd_data.Fil)); // move to end of file
 		f_write(&global_micro_sd_data.Fil, telemetry_string, str_len, &bytesWritten);
 
-		char newLine[1] = {'\n'};
-		f_write(&global_micro_sd_data.Fil, newLine, 1, &bytesWritten);
+		// Need to add a new line in order to indicate the next packet to the user.
+		f_write(&global_micro_sd_data.Fil, "\n", 1, &bytesWritten);
 
 		f_close(&global_micro_sd_data.Fil);
     }

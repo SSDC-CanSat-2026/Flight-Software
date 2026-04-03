@@ -60,6 +60,8 @@ void init_SD(void){
 
 	if(f_mount(&global_micro_sd_data.FatFs, "", 1) != FR_OK){
 		global_micro_sd_data.successfullyMounted = 0;
+
+		// TODO: ADD LED DEBUGGING LIGHTS HERE FOR LED
 	}
 
 	global_micro_sd_data.successfullyMounted = 1;;
