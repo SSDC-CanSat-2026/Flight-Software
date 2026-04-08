@@ -21,7 +21,6 @@
 #include "cmsis_os.h"
 #include "app_fatfs.h"
 #include "usb_device.h"
-extern uint16_t Timer1, Timer2;
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -79,6 +78,8 @@ osThreadId guideNavCtrlHandle;
 osSemaphoreId globalDataHandle;
 /* USER CODE BEGIN PV */
 
+uint16_t Timer1, Timer2;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -131,7 +132,6 @@ int main(void)
 
   /* USER CODE BEGIN Init */
   init_mission_data();
-  init_SD();
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -161,7 +161,15 @@ int main(void)
     Error_Handler();
   }
   MX_TIM1_Init();
+  HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
   /* USER CODE BEGIN 2 */
+
+  // Disable ALL chip selects
+  HAL_GPIO_WritePin(IMU_nCS_GPIO_Port, IMU_nCS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(BMP_nCS_GPIO_Port, BMP_nCS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(SD_nCS_GPIO_Port, SD_nCS_Pin, GPIO_PIN_SET);
+
+  init_SD();
 
   /* USER CODE END 2 */
 
@@ -171,44 +179,44 @@ int main(void)
 
   /* Create the semaphores(s) */
   /* definition and creation of globalData */
-  osSemaphoreDef(globalData);
-  globalDataHandle = osSemaphoreCreate(osSemaphore(globalData), 1);
-
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
-  /* USER CODE END RTOS_SEMAPHORES */
-
-  /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
-
-  /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
-
-  /* Create the thread(s) */
-  /* definition and creation of readSensors */
-  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 128);
-  readSensorsHandle = osThreadCreate(osThread(readSensors), NULL);
-
-  /* definition and creation of readCommands */
-  osThreadDef(readCommands, StartReadCommands, osPriorityNormal, 0, 128);
-  readCommandsHandle = osThreadCreate(osThread(readCommands), NULL);
-
-  /* definition and creation of sendTelemetry */
-  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 128);
-  sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
-
-  /* definition and creation of guideNavCtrl */
-  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 128);
-  guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
-
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
-
-  /* Start scheduler */
-  osKernelStart();
+//  osSemaphoreDef(globalData);
+//  globalDataHandle = osSemaphoreCreate(osSemaphore(globalData), 1);
+//
+//  /* USER CODE BEGIN RTOS_SEMAPHORES */
+//////  /* add semaphores, ... */
+//  /* USER CODE END RTOS_SEMAPHORES */
+//
+//  /* USER CODE BEGIN RTOS_TIMERS */
+//////  /* start timers, add new ones, ... */
+//  /* USER CODE END RTOS_TIMERS */
+//
+//  /* USER CODE BEGIN RTOS_QUEUES */
+//////  /* add queues, ... */
+//  /* USER CODE END RTOS_QUEUES */
+//
+//  /* Create the thread(s) */
+//  /* definition and creation of readSensors */
+//  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 128);
+//  readSensorsHandle = osThreadCreate(osThread(readSensors), NULL);
+//
+//  /* definition and creation of readCommands */
+//  osThreadDef(readCommands, StartReadCommands, osPriorityNormal, 0, 128);
+//  readCommandsHandle = osThreadCreate(osThread(readCommands), NULL);
+//
+//  /* definition and creation of sendTelemetry */
+//  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 128);
+//  sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
+//
+//  /* definition and creation of guideNavCtrl */
+//  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 128);
+//  guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
+//
+//  /* USER CODE BEGIN RTOS_THREADS */
+//////  /* add threads, ... */
+//  /* USER CODE END RTOS_THREADS */
+//
+//  /* Start scheduler */
+//  osKernelStart();
 
   /* We should never get here as control is now taken by the scheduler */
 
@@ -219,6 +227,10 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+	  HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+//	  for (volatile uint32_t i = 0; i < 10000000; i++);
+	  HAL_Delay(250);
   }
   /* USER CODE END 3 */
 }
@@ -1125,7 +1137,7 @@ void StartReadSensors(void const * argument)
   /* Infinite loop */
   for (;;)
   {
-    if (xSemaphoreTake(globalDataHandle, (TickType_t)100) == pdTRUE)
+    if (osSemaphoreWait(globalDataHandle, 100) == osOK)
     {
       // #1 PRIORITY: make sure mutex unlocks no matter what!!!!
 
@@ -1198,12 +1210,13 @@ void StartReadSensors(void const * argument)
        */
 
       // Relinquish access to the global_mission_data struct
-      xSemaphoreGive(globalDataHandle);
+      osSemaphoreRelease(globalDataHandle);
+      osThreadYield();
     }
     else
     {
-      // semaphore could not be taken due to someone else using it or smth
-      // probably just do nothing here
+      osThreadYield();
+      continue;
     }
   }
   /* USER CODE END 5 */
@@ -1346,7 +1359,7 @@ void StartSendTelemetry(void const * argument)
   for (;;)
   {
     // manually defines a critical region to ensure half-packets are never transmitted
-    taskENTER_CRITICAL();
+//    taskENTER_CRITICAL();
 
     // create an empty buffer for the telemetry packet string
     char telemetry_string[200];
@@ -1354,7 +1367,7 @@ void StartSendTelemetry(void const * argument)
     // Generic temporary variable for use in sprintf() calls, etc.
     int str_len = 0;
     // Request semaphore access
-    if (xSemaphoreTake(globalDataHandle, (TickType_t)100) == pdTRUE) {
+    if (osSemaphoreWait(globalDataHandle, 100) != osOK) {
     	continue; // Until we can acquire a lock on the data, we do not want to read from it
     }
 
@@ -1371,15 +1384,15 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.VOLTAGE,      // battery voltage (V)
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
-                      global_mission_data.GYRO_Y        // gyro yaw (degrees/s)
-    );
-
-    // send the first part of the packet over UART
-    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
-    // clear the buffer
-    memset(telemetry_string, 0, sizeof(telemetry_string));
-    // fill the buffer with the second half of the packet
-    str_len = sprintf(telemetry_string, ",%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
+                      global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
+//    );
+//
+//    // send the first part of the packet over UART
+//    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
+//    // clear the buffer
+//    memset(telemetry_string, 0, sizeof(telemetry_string));
+//    // fill the buffer with the second half of the packet
+//    str_len = sprintf(telemetry_string, ",%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
                       global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)
                       global_mission_data.ACCEL_P,                 // accelerometer pitch (degrees/s^2)
                       global_mission_data.ACCEL_Y,                 // accelerometer yaw (degrees/s^2)
@@ -1410,10 +1423,16 @@ void StartSendTelemetry(void const * argument)
 
 		f_close(&global_micro_sd_data.Fil);
     }
+    else {
+    	HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+    }
 
-    xSemaphoreGive(globalDataHandle);
+    osSemaphoreRelease(globalDataHandle);
+//    xSemaphoreGive(globalDataHandle);
     // exit the critical region once both packets have been sent
-    taskEXIT_CRITICAL();
+//    taskEXIT_CRITICAL();
+
+    osDelay(1000);
   }
   /* USER CODE END StartSendTelemetry */
 }
@@ -1431,7 +1450,8 @@ void StartGNC(void const * argument)
   /* Infinite loop */
   for (;;)
   {
-    osDelay(1);
+	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+    osDelay(250);
   }
   /* USER CODE END StartGNC */
 }

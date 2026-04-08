@@ -16,7 +16,7 @@
 #define bool BYTE
 
 static volatile DSTATUS Stat = STA_NOINIT;  /* Disk Status */
-uint16_t Timer1, Timer2; 		/* 1ms Timer Counters */
+extern uint16_t Timer1, Timer2; 		/* 1ms Timer Counters */
 static uint8_t CardType; 		/* Type 0:MMC, 1:SDC, 2:Block addressing */
 static uint8_t PowerFlag = 0;	/* Power flag */
 
