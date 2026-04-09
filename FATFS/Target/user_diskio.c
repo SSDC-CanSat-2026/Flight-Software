@@ -143,7 +143,7 @@ DRESULT USER_write (
 {
   /* USER CODE BEGIN WRITE */
   /* USER CODE HERE */
-	return SD_disk_read(pdrv, buff, sector, count);
+	return SD_disk_write(pdrv, buff, sector, count);
     //return RES_OK;
   /* USER CODE END WRITE */
 }

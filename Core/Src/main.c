@@ -160,16 +160,14 @@ int main(void)
   if (MX_FATFS_Init() != APP_OK) {
     Error_Handler();
   }
+
   MX_TIM1_Init();
-  HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
   /* USER CODE BEGIN 2 */
 
   // Disable ALL chip selects
   HAL_GPIO_WritePin(IMU_nCS_GPIO_Port, IMU_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(BMP_nCS_GPIO_Port, BMP_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(SD_nCS_GPIO_Port, SD_nCS_Pin, GPIO_PIN_SET);
-
-  init_SD();
 
   /* USER CODE END 2 */
 
@@ -179,44 +177,44 @@ int main(void)
 
   /* Create the semaphores(s) */
   /* definition and creation of globalData */
-//  osSemaphoreDef(globalData);
-//  globalDataHandle = osSemaphoreCreate(osSemaphore(globalData), 1);
-//
-//  /* USER CODE BEGIN RTOS_SEMAPHORES */
-//////  /* add semaphores, ... */
-//  /* USER CODE END RTOS_SEMAPHORES */
-//
-//  /* USER CODE BEGIN RTOS_TIMERS */
-//////  /* start timers, add new ones, ... */
-//  /* USER CODE END RTOS_TIMERS */
-//
-//  /* USER CODE BEGIN RTOS_QUEUES */
-//////  /* add queues, ... */
-//  /* USER CODE END RTOS_QUEUES */
-//
-//  /* Create the thread(s) */
-//  /* definition and creation of readSensors */
-//  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 128);
+  osSemaphoreDef(globalData);
+  globalDataHandle = osSemaphoreCreate(osSemaphore(globalData), 1);
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of readSensors */
+//  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 512);
 //  readSensorsHandle = osThreadCreate(osThread(readSensors), NULL);
-//
-//  /* definition and creation of readCommands */
-//  osThreadDef(readCommands, StartReadCommands, osPriorityNormal, 0, 128);
+
+  /* definition and creation of readCommands */
+//  osThreadDef(readCommands, StartReadCommands, osPriorityNormal, 0, 512);
 //  readCommandsHandle = osThreadCreate(osThread(readCommands), NULL);
-//
-//  /* definition and creation of sendTelemetry */
-//  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 128);
-//  sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
-//
-//  /* definition and creation of guideNavCtrl */
-//  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 128);
+
+  /* definition and creation of sendTelemetry */
+  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 512);
+  sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
+
+  /* definition and creation of guideNavCtrl */
+//  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 512);
 //  guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
-//
-//  /* USER CODE BEGIN RTOS_THREADS */
-//////  /* add threads, ... */
-//  /* USER CODE END RTOS_THREADS */
-//
-//  /* Start scheduler */
-//  osKernelStart();
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* Start scheduler */
+  osKernelStart();
 
   /* We should never get here as control is now taken by the scheduler */
 
@@ -228,9 +226,9 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+//	  HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
 //	  for (volatile uint32_t i = 0; i < 10000000; i++);
-	  HAL_Delay(250);
+//	  HAL_Delay(250);
   }
   /* USER CODE END 3 */
 }
@@ -1355,6 +1353,29 @@ void StartReadCommands(void const * argument)
 void StartSendTelemetry(void const * argument)
 {
   /* USER CODE BEGIN StartSendTelemetry */
+
+	  // Test raw disk layer before any FatFS operations
+//	  DSTATUS diskStatus = disk_initialize(0);
+	  // Check in debugger:
+	  // diskStatus == 0x00 (RES_OK)  → disk layer initialised correctly
+	  // diskStatus == 0x01 (STA_NOINIT) → disk_initialize failed
+	  // diskStatus == 0x02 (STA_NODISK) → no card detected
+	  // diskStatus == 0x04 (STA_PROTECT) → write protected
+
+	init_SD();
+
+	// Check what FatFS thinks of the volume
+//	DWORD freeClust;
+//	FATFS *fs_ptr;
+//	FRESULT res = f_getfree(USERPath, &freeClust, &fs_ptr);
+	// Check in debugger:
+	// res == FR_OK → volume is readable, FAT is accessible
+	// fs_ptr->fs_type → 1=FAT12, 2=FAT16, 3=FAT32, 4=exFAT
+	// fs_ptr->n_fatent → total clusters
+	// freeClust → free clusters, should be nonzero
+
+	HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
+
   /* Infinite loop */
   for (;;)
   {
@@ -1372,7 +1393,7 @@ void StartSendTelemetry(void const * argument)
     }
 
     // fill the buffer with the first half of the packet
-    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d",
+    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
                       global_mission_data.TEAM_ID,      // team id (3174)
                       global_mission_data.MISSION_TIME, // mission time
                       global_mission_data.PACKET_COUNT, // packet count
@@ -1385,14 +1406,6 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
                       global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
-//    );
-//
-//    // send the first part of the packet over UART
-//    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
-//    // clear the buffer
-//    memset(telemetry_string, 0, sizeof(telemetry_string));
-//    // fill the buffer with the second half of the packet
-//    str_len = sprintf(telemetry_string, ",%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
                       global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)
                       global_mission_data.ACCEL_P,                 // accelerometer pitch (degrees/s^2)
                       global_mission_data.ACCEL_Y,                 // accelerometer yaw (degrees/s^2)
@@ -1409,23 +1422,7 @@ void StartSendTelemetry(void const * argument)
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
 
-    UINT bytesWritten;
-    FRESULT result;
-
-    if(global_micro_sd_data.successfullyMounted == 1){
-		result = f_open(&global_micro_sd_data.Fil, "CanSat_Data_2026.csv", FA_WRITE | FA_OPEN_ALWAYS);
-
-		f_lseek(&global_micro_sd_data.Fil, f_size(&global_micro_sd_data.Fil)); // move to end of file
-		f_write(&global_micro_sd_data.Fil, telemetry_string, str_len, &bytesWritten);
-
-		// Need to add a new line in order to indicate the next packet to the user.
-		f_write(&global_micro_sd_data.Fil, "\n", 1, &bytesWritten);
-
-		f_close(&global_micro_sd_data.Fil);
-    }
-    else {
-    	HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
-    }
+    write_SD(telemetry_string, str_len);
 
     osSemaphoreRelease(globalDataHandle);
 //    xSemaphoreGive(globalDataHandle);
@@ -1447,10 +1444,12 @@ void StartSendTelemetry(void const * argument)
 void StartGNC(void const * argument)
 {
   /* USER CODE BEGIN StartGNC */
+
   /* Infinite loop */
   for (;;)
   {
-	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+
+//	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
     osDelay(250);
   }
   /* USER CODE END StartGNC */

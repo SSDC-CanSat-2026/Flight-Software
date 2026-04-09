@@ -11,6 +11,7 @@
 #include "stm32g4xx_hal.h"
 #include "string.h"
 #include "ff.h"
+#include "app_fatfs.h"
 
 #define STATE_TEXT_LEN 14 // 13 max, plus 1 for null char
 #define CMD_ECHO_LEN 10
