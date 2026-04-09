@@ -1143,52 +1143,55 @@ void StartReadSensors(void const * argument)
       }
       global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
-      global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
-      determineState(global_mission_data.ALTITUDE);
+      // I suggest we just have a normal variable that we store the most recent
+      // simulated pressure value in, and each time we read the next SIMP command,
+      // just update the variable with the commanded value.
+      // global_mission_data.PRESSURE = simulated_pressure; - Joel
+    }
+    global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
-      ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
-      global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
-      global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
-      global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
+    determineState(global_mission_data.ALTITUDE);
 
-      global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
-      global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
-      global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+    ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
+    global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
+    global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
 
-      LC76G_gps_data* gps_data = LC76G_read_data(&huart5);
-      global_mission_data.GPS_LATITUDE = gps_data->lat;
-      global_mission_data.GPS_LONGITUDE = gps_data->lon;
-      global_mission_data.GPS_ALTITUDE = gps_data->altitude;
-      global_mission_data.GPS_SATS = gps_data->num_sat_used;
+    global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
+    global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
+    global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
 
-      snprintf(global_mission_data.GPS_TIME, 9, "%02d:%02d:%02d",
-               gps_data->time_H, gps_data->time_M, gps_data->time_S);
+    LC76G_gps_data* gps_data = LC76G_read_data(&huart5);
+    global_mission_data.GPS_LATITUDE = gps_data->lat;
+    global_mission_data.GPS_LONGITUDE = gps_data->lon;
+    global_mission_data.GPS_ALTITUDE = gps_data->altitude;
+    global_mission_data.GPS_SATS = gps_data->num_sat_used;
 
-      RTC_TimeTypeDef sTime = {0};
-      // Needed to unlock time registers
-      RTC_DateTypeDef sDate = {0};
+    snprintf(global_mission_data.GPS_TIME, 9, "%02d:%02d:%02d",
+              gps_data->time_H, gps_data->time_M, gps_data->time_S);
 
-      if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
-      {
-        Error_Handler();
-      }
+    RTC_TimeTypeDef sTime = {0};
+    // Needed to unlock time registers
+    RTC_DateTypeDef sDate = {0};
 
-      // Needed to unlock time registers
-      if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
-      {
-        Error_Handler();
-      }
+    if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
+    {
+      Error_Handler();
+    }
 
-      snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
-               sTime.Hours, sTime.Minutes, sTime.Seconds);
+    // Needed to unlock time registers
+    if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
+    {
+      Error_Handler();
+    }
 
-      /*
-       * Get Voltage and Current from Magnetometer
-       */
+    snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
+              sTime.Hours, sTime.Minutes, sTime.Seconds);
 
-      /*
-       * Get GPS information from GPS
-       */
+    /*
+      * Get Voltage and Current from Magnetometer
+      */
 
       // Relinquish access to the global_mission_data struct
       xSemaphoreGive(globalDataHandle);
@@ -1224,6 +1227,11 @@ void StartReadCommands(void const * argument)
 
     char *char_arr = (char *)command_buffer;
     char rx_string[CMD_BUFFER_LEN];
+
+    int8_t num_tokens = osSemaphoreWait(globalDataHandle, 100);
+	if (num_tokens <= 0) {
+		continue; // Semaphore is either unavailable or inputs are wrong
+	}
 
     strncpy(rx_string, char_arr, CMD_BUFFER_LEN);
     if (strncmp(rx_string, "CMD,3174,CX,ON", 14) == 0)
@@ -1283,9 +1291,9 @@ void StartReadCommands(void const * argument)
     // SIMP command -> add simulated pressure data
     else if (strncmp(rx_string, "CMD,3174,SIMP,", 14) == 0)
     {
-      // parse inputted pressure data
-      char *pressure_str = rx_string + 14;
-      char *str_end;
+      // parse inputed pressure data
+//      char *pressure_str = rx_string + 14;
+//      char *str_end;
       long pressure_pa = atof(rx_string + 14);
       // if (str_end == pressure_str || *str_end != '\0')
       // it wasn't a valid number
@@ -1318,6 +1326,8 @@ void StartReadCommands(void const * argument)
       // turn off MEC command (servos for GNC?)
     }
 
+    osSemaphoreRelease(globalDataHandle);
+
     // clear command buffer
     memset(rx_string, 0, sizeof(rx_string)); // Can someone double check if this is supposed to clear the command buffer?
   }
@@ -1344,7 +1354,7 @@ void StartSendTelemetry(void const * argument)
     char telemetry_string[200];
 
     // Generic temporary variable for use in sprintf() calls, etc.
-    int str_len = 0;
+    uint16_t str_len = 0;
     // Request semaphore access
     if (xSemaphoreTake(globalDataHandle, (TickType_t)100) == pdTRUE) {
     	continue; // Until we can acquire a lock on the data, we do not want to read from it
