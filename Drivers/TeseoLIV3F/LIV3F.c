@@ -7,6 +7,32 @@
 
 #include "LIV3F.h"
 
+void teseo_INIT(UART_HandleTypeDef* huart) {
+	/*
+	 * Low 32 bits:
+	 * • Bit 1	(0x2) 		$GPGGA 		Message
+	 * • Bit 27 (0x800000)	$PSTMKFCOV 	Message   (Possibly)
+	 * High 32 bits
+	 * • Bit 32 (0x1)		$PSTMPV		Message	  (Possibly)
+	 * • Bit 33 (0x2)		$PSTMPVQ	Message   (If bit 32 is used)
+	 */
+
+	// This is for NOT the use of bits 32 and 33.
+	uint32_t low  = (0x2 | 0x8000000);
+	uint32_t high = 0;
+	char cold_start[100];
+	uint16_t str_len = sprintf(cold_start, "$PSTMNMEAREQUEST,%X,%X*E2\r\n", low, high);
+	HAL_UART_Transmit(huart, cold_start, str_len, HAL_MAX_DELAY);
+
+	// This is for the use of bits 32 and 33.
+	/*uint32_t low  = (0x2 | 0x8000000);
+	uint32_t high = (0x1 | 0x2);
+	char cold_start[100];
+	uint16_t str_len = sprintf(cold_start, "$PSTMNMEAREQUEST,%X,%X*E5\r\n", low, high);
+	HAL_UART_Transmit(huart, cold_start, str_len, HAL_MAX_DELAY);*/
+
+}
+
 void cold_start(UART_HandleTypeDef* huart) {
 	// $PSTMCOLD to trigger a cold start
 
@@ -43,7 +69,7 @@ int parse_gga(char *sentence, GGA_Data_t *out)
 	<CR><LF>				- 2 Characters
 	*/
 
-    if (strncmp(sentence, "$GNGGA", 6) != 0)
+    if (strncmp(sentence, "$GPGGA", 6) != 0)
         return 0;
 
     char *fields[MAX_GGA_FIELDS] = {0};
