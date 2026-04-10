@@ -24,11 +24,15 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "../Inc/config.h"
 #include "../Inc/global.h"
+#include "../Inc/microSD.h"
+#include "../Inc/FreeRTOSConfig.h"
 #include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
 #include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
 #include "../../Drivers/LC76G/LC76G.h"         // GPS Module
+#include "../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -75,6 +79,7 @@ osThreadId readSensorsHandle;
 osThreadId readCommandsHandle;
 osThreadId sendTelemetryHandle;
 osThreadId guideNavCtrlHandle;
+osThreadId InitHandle;
 osSemaphoreId globalDataHandle;
 /* USER CODE BEGIN PV */
 
@@ -104,6 +109,7 @@ void StartReadSensors(void const * argument);
 void StartReadCommands(void const * argument);
 void StartSendTelemetry(void const * argument);
 void StartGNC(void const * argument);
+void StartInit(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -160,7 +166,6 @@ int main(void)
   if (MX_FATFS_Init() != APP_OK) {
     Error_Handler();
   }
-
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
@@ -194,20 +199,24 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of readSensors */
-//  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 512);
-//  readSensorsHandle = osThreadCreate(osThread(readSensors), NULL);
+  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 512);
+  readSensorsHandle = osThreadCreate(osThread(readSensors), NULL);
 
   /* definition and creation of readCommands */
-//  osThreadDef(readCommands, StartReadCommands, osPriorityNormal, 0, 512);
-//  readCommandsHandle = osThreadCreate(osThread(readCommands), NULL);
+  osThreadDef(readCommands, StartReadCommands, osPriorityNormal, 0, 512);
+  readCommandsHandle = osThreadCreate(osThread(readCommands), NULL);
 
   /* definition and creation of sendTelemetry */
   osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 512);
   sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
 
   /* definition and creation of guideNavCtrl */
-//  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 512);
-//  guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
+  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 512);
+  guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
+
+  /* definition and creation of Init */
+  osThreadDef(Init, StartInit, osPriorityHigh, 0, 512);
+  InitHandle = osThreadCreate(osThread(Init), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -225,10 +234,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-//	  HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
-//	  for (volatile uint32_t i = 0; i < 10000000; i++);
-//	  HAL_Delay(250);
   }
   /* USER CODE END 3 */
 }
@@ -1118,6 +1123,28 @@ void vApplicationTickHook(void){
 	if(Timer2 > 0)
 		Timer2--;
 }
+
+// This is a call back in case a thread has a stack overflow.
+// pcTaskName is the name of the offending task
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+{
+    (void)xTask;
+    (void)pcTaskName;
+    // Forces a breakpoint in the debugger
+    __BKPT(0);
+    for (;;);
+}
+
+// Incase there is an error with a Malloc somewhere
+void vApplicationMallocFailedHook(void)
+{
+    // Fires if pvPortMalloc fails — useful to catch heap exhaustion
+
+	// Forces a breakpoint in the debugger
+    __BKPT(0);
+    for (;;);
+}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartReadSensors */
@@ -1354,33 +1381,13 @@ void StartSendTelemetry(void const * argument)
 {
   /* USER CODE BEGIN StartSendTelemetry */
 
-	  // Test raw disk layer before any FatFS operations
-//	  DSTATUS diskStatus = disk_initialize(0);
-	  // Check in debugger:
-	  // diskStatus == 0x00 (RES_OK)  → disk layer initialised correctly
-	  // diskStatus == 0x01 (STA_NOINIT) → disk_initialize failed
-	  // diskStatus == 0x02 (STA_NODISK) → no card detected
-	  // diskStatus == 0x04 (STA_PROTECT) → write protected
-
-	init_SD();
-
-	// Check what FatFS thinks of the volume
-//	DWORD freeClust;
-//	FATFS *fs_ptr;
-//	FRESULT res = f_getfree(USERPath, &freeClust, &fs_ptr);
-	// Check in debugger:
-	// res == FR_OK → volume is readable, FAT is accessible
-	// fs_ptr->fs_type → 1=FAT12, 2=FAT16, 3=FAT32, 4=exFAT
-	// fs_ptr->n_fatent → total clusters
-	// freeClust → free clusters, should be nonzero
-
-	HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
-
   /* Infinite loop */
   for (;;)
   {
     // manually defines a critical region to ensure half-packets are never transmitted
 //    taskENTER_CRITICAL();
+
+	  HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
 
     // create an empty buffer for the telemetry packet string
     char telemetry_string[200];
@@ -1422,12 +1429,14 @@ void StartSendTelemetry(void const * argument)
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
 
-    write_SD(telemetry_string, str_len);
+    write_SD(telemetry_string, str_len, "CanSat_Data_2026.csv");
 
     osSemaphoreRelease(globalDataHandle);
 //    xSemaphoreGive(globalDataHandle);
     // exit the critical region once both packets have been sent
 //    taskEXIT_CRITICAL();
+    HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+    HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
 
     osDelay(1000);
   }
@@ -1453,6 +1462,58 @@ void StartGNC(void const * argument)
     osDelay(250);
   }
   /* USER CODE END StartGNC */
+}
+
+/* USER CODE BEGIN Header_StartInit */
+/**
+* @brief Function implementing the Init thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartInit */
+void StartInit(void const * argument)
+{
+  /* USER CODE BEGIN StartInit */
+	init_SD();
+
+	if (global_micro_sd_data.successfullyMounted) {
+		uint32_t result = load_config_from_sd();
+		if (result != APP_OK) {
+			HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+			// Set default config
+			set_default_config();
+			save_config_to_sd();
+		}
+	}
+	else {
+		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+		set_default_config();
+	}
+
+
+
+	// Read Config file and update accordingly
+	global_mission_data.ALTITUDE_OFFSET = global_config.ALTITUDE_OFFSET;
+	global_mission_data.PACKET_COUNT	= global_config.PACKET_COUNT;
+
+	strcpy(global_mission_data.MISSION_TIME, global_config.MISSION_TIME);
+	strcpy(global_mission_data.STATE, global_config.STATE);
+
+	// This lets you see the minimum amount of the stack was remaining at any time
+	//  during a thread's execution.
+	UBaseType_t stackHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
+
+	HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
+
+
+
+	// Init task has nothing left to do — delete itself
+//	osThreadTerminate(osThreadGetId());
+	vTaskDelete(NULL);
+
+	for(;;);
+
+  /* USER CODE END StartInit */
 }
 
 /**

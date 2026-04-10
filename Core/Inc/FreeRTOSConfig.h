@@ -63,8 +63,8 @@
 #define configCPU_CLOCK_HZ                       ( SystemCoreClock )
 #define configTICK_RATE_HZ                       ((TickType_t)1000)
 #define configMAX_PRIORITIES                     ( 7 )
-#define configMINIMAL_STACK_SIZE                 ((uint16_t)512)
-#define configTOTAL_HEAP_SIZE                    ((size_t)12288)
+#define configMINIMAL_STACK_SIZE                 ((uint16_t)256)
+#define configTOTAL_HEAP_SIZE                    ((size_t)15000)
 #define configMAX_TASK_NAME_LEN                  ( 16 )
 #define configUSE_16_BIT_TICKS                   0
 #define configUSE_MUTEXES                        1
@@ -137,6 +137,17 @@ standard names. */
 
 /* USER CODE BEGIN Defines */
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
+  // Allows for a call back in case a thread has a stack overflow, this allows us to see the name of the thread in question.
+#define configCHECK_FOR_STACK_OVERFLOW  	2
+
+  // Didn't use this, but probably helpful somewhere.
+#define configUSE_MALLOC_FAILED_HOOK      	1
+
+  // These two allow for a function that will show stack usage in a thread.
+  // This is useful for pinpointing where a stack overflow specifically happens.
+#define configRECORD_STACK_HIGH_ADDRESS  	1
+#define INCLUDE_uxTaskGetStackHighWaterMark 1
+
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */
