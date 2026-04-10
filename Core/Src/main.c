@@ -39,6 +39,9 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+#define BUFFER_SIZE 128
+#define XBEE_MAX_PAYLOAD 80   // Safe value
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -79,6 +82,17 @@ osThreadId guideNavCtrlHandle;
 osSemaphoreId globalDataHandle;
 /* USER CODE BEGIN PV */
 
+uint8_t dma_buffer[BUFFER_SIZE]   = { 0 };
+char transmit_buffer[BUFFER_SIZE] = { 0 };
+char receive_buffer[BUFFER_SIZE]  = { 0 };
+char command_buffer[BUFFER_SIZE]  = { 0 };
+
+// Flags for GPS and XBEE since they use UART DMA
+volatile uint16_t GPS_SIZE 	   = 0;
+volatile uint8_t GPS_READY 	   = 0;
+volatile uint16_t COMMAND_SIZE = 0;
+volatile uint8_t COMMAND_READY = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -110,6 +124,54 @@ void StartGNC(void const * argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
+{
+  if (huart->Instance == UART5)
+  {
+    if (!GPS_READY)
+    {
+		GPS_SIZE = size;
+		GPS_READY = 1;
+		memcpy(receive_buffer, dma_buffer, size);
+    }
+  }
+  else if (huart->Instance == USART3)
+  {
+    if (!COMMAND_READY)
+    {
+		COMMAND_SIZE = size;
+		COMMAND_READY = 1;
+		memcpy(command_buffer, dma_buffer, size);
+    }
+  }
+  else
+  {
+    // FIXME : Change this for a DBG LED in the new code
+	  HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+  }
+
+  HAL_UARTEx_ReceiveToIdle_DMA(huart, dma_buffer, BUFFER_SIZE);
+  __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
+}
+
+void HAL_UARTEx_ErrorCallback(UART_HandleTypeDef *huart) {
+	while(1) {
+		// 1 quick 2 slow to show a UART error
+		HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+		HAL_Delay(100);
+		HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+		HAL_Delay(100);
+		HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+		HAL_Delay(200);
+		HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+		HAL_Delay(200);
+		HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+		HAL_Delay(200);
+		HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+		HAL_Delay(200);
+	}
+}
 
 /* USER CODE END 0 */
 
@@ -161,6 +223,57 @@ int main(void)
   }
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+
+
+  // Hold GPS in reset (LOW)
+  HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
+  HAL_Delay(100);
+
+  // Fully reset UART5 peripheral
+  __HAL_RCC_UART5_FORCE_RESET();
+  __HAL_RCC_UART5_RELEASE_RESET();
+  MX_UART5_Init();   // reinitialize UART
+
+  // Clear all flags
+  __HAL_UART_CLEAR_OREFLAG(&huart5);
+  __HAL_UART_CLEAR_FEFLAG(&huart5);
+  __HAL_UART_CLEAR_NEFLAG(&huart5);
+  __HAL_UART_CLEAR_PEFLAG(&huart5);
+
+  // Fully reset UART3 peripheral
+  __HAL_RCC_USART3_FORCE_RESET();
+  __HAL_RCC_USART3_RELEASE_RESET();
+  MX_USART3_UART_Init();   // reinitialize UART
+
+  // Clear all flags
+  __HAL_UART_CLEAR_OREFLAG(&huart3);
+  __HAL_UART_CLEAR_FEFLAG(&huart3);
+  __HAL_UART_CLEAR_NEFLAG(&huart3);
+  __HAL_UART_CLEAR_PEFLAG(&huart3);
+
+  // Now release GPS reset
+  HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_SET);
+  HAL_Delay(5000);
+
+
+  // Enable DMA call backs
+  // UART 5
+  // Check if ORE flag is set, which can happen if data is present on UART RX line
+  if (__HAL_UART_GET_FLAG(&huart5, UART_FLAG_ORE)) {
+    __HAL_UART_CLEAR_FLAG(&huart5, UART_CLEAR_OREF);
+  }
+  // receive until idle, then trigger interrupt
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart5, dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
+  __HAL_DMA_DISABLE_IT(huart5.hdmarx, DMA_IT_HT); // Disables "Half Transfer" interrupt
+
+  // USART 3
+  // Check if ORE flag is set, which can happen if data is present on UART RX line
+  if (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_ORE)) {
+    __HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF);
+  }
+  // receive until idle, then trigger interrupt
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart3, dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
+  __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT); // Disables "Half Transfer" interrupt
 
   /* USER CODE END 2 */
 

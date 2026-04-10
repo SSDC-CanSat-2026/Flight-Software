@@ -7,11 +7,11 @@
 
 #include "LIV3F.h"
 
-void cold_start(void) {
+void cold_start(UART_HandleTypeDef* huart) {
 	// $PSTMCOLD to trigger a cold start
 
 	char cold[] = "$PSTMCOLD,,*\r\n"; // FIXME : Find Checksum
-	HAL_UART_Transmit(&huart5, cold, sizeof(cold), HAL_MAX_DELAY);
+	HAL_UART_Transmit(huart, cold, sizeof(cold), HAL_MAX_DELAY);
 }
 
 int parse_gga(char *sentence, GGA_Data_t *out)

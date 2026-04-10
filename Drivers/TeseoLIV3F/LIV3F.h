@@ -63,7 +63,7 @@ typedef struct
 extern GGA_Data_t data;
 
 void teseo_INIT(void);
-void cold_start(void);
+void cold_start(UART_HandleTypeDef* huart);
 
 int parse_gga(char *sentence, GGA_Data_t *out);
 
