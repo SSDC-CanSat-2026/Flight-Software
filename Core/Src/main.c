@@ -29,6 +29,7 @@
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
 #include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
 #include "../../Drivers/LC76G/LC76G.h"         // GPS Module
+#include "../../Drivers/TeseoLIV3F/LIV3F.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -1272,11 +1273,36 @@ void StartReadSensors(void const * argument)
       global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
       global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
 
-      LC76G_gps_data* gps_data = LC76G_read_data(&huart5);
-      global_mission_data.GPS_LATITUDE = gps_data->lat;
-      global_mission_data.GPS_LONGITUDE = gps_data->lon;
-      global_mission_data.GPS_ALTITUDE = gps_data->altitude;
-      global_mission_data.GPS_SATS = gps_data->num_sat_used;
+      // OLD GPS DATA
+      // LC76G_gps_data* gps_data = LC76G_read_data(&huart5);
+      // global_mission_data.GPS_LATITUDE = gps_data->lat;
+      // global_mission_data.GPS_LONGITUDE = gps_data->lon;
+      // global_mission_data.GPS_ALTITUDE = gps_data->altitude;
+      // global_mission_data.GPS_SATS = gps_data->num_sat_used;
+
+
+      //New code
+      if (GPS_READY)
+      {
+        GGA_Data_t gps_data = GGA_Data_t{ 0 };
+
+        // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
+        // into the receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
+        // I don't know why we have an extern global variable in LIV3F.h? We can just have a local copy here that will be populated
+        // with the gga data from the function here: Am I missing something in my understanding of how we are getting our data? 
+        int result = parse_gga(receive_buffer, &data);
+
+        //result is 1 on success
+        if (result == 1)
+        {
+          global_mission_data.GPS_LATITUDE = gps_data->latitude;
+          global_mission_data.GPS_LONGITUDE = gps_data->longitude;
+          global_mission_data.GPS_ALTITUDE = gps_data->altitude;
+          global_mission_data.GPS_SATS = gps_data->num_satellites;
+        }
+      }
+
+
 
       snprintf(global_mission_data.GPS_TIME, 9, "%02d:%02d:%02d",
                gps_data->time_H, gps_data->time_M, gps_data->time_S);
