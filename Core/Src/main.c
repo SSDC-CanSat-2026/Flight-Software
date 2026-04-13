@@ -1344,6 +1344,11 @@ void StartReadCommands(void const * argument)
     char *char_arr = (char *)command_buffer;
     char rx_string[CMD_BUFFER_LEN];
 
+    int8_t num_tokens = osSemaphoreWait(globalDataHandle, 100);
+	if (num_tokens <= 0) {
+		continue; // Semaphore is either unavailable or inputs are wrong
+	}
+
     strncpy(rx_string, char_arr, CMD_BUFFER_LEN);
     if (strncmp(rx_string, "CMD,3174,CX,ON", 14) == 0)
     {
@@ -1402,9 +1407,9 @@ void StartReadCommands(void const * argument)
     // SIMP command -> add simulated pressure data
     else if (strncmp(rx_string, "CMD,3174,SIMP,", 14) == 0)
     {
-      // parse inputted pressure data
-      char *pressure_str = rx_string + 14;
-      char *str_end;
+      // parse inputed pressure data
+//      char *pressure_str = rx_string + 14;
+//      char *str_end;
       long pressure_pa = atof(rx_string + 14);
       // if (str_end == pressure_str || *str_end != '\0')
       // it wasn't a valid number
@@ -1420,6 +1425,10 @@ void StartReadCommands(void const * argument)
     {
       // set command echo
       char c_echo[] = "CAL";
+
+      Mission_Data.STATE = "LAUNCH_PAD";
+      memset(altitude_history, 0, 3);
+
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
     // MEC WIRE ON command -> actuate (servos?)
@@ -1432,6 +1441,8 @@ void StartReadCommands(void const * argument)
     {
       // turn off MEC command (servos for GNC?)
     }
+
+    osSemaphoreRelease(globalDataHandle);
 
     // clear command buffer
     memset(rx_string, 0, sizeof(rx_string)); // Can someone double check if this is supposed to clear the command buffer?
@@ -1460,7 +1471,7 @@ void StartSendTelemetry(void const * argument)
     char telemetry_string[200];
 
     // Generic temporary variable for use in sprintf() calls, etc.
-    int str_len = 0;
+    uint16_t str_len = 0;
     // Request semaphore access
     stat = osSemaphoreWait(globalDataHandle, 100);
     if (stat != osOK) {
