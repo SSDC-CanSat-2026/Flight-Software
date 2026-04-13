@@ -21,8 +21,9 @@ void teseo_INIT(UART_HandleTypeDef* huart) {
 	uint32_t low  = (0x2 | 0x8000000);
 	uint32_t high = 0;
 	char cold_start[100];
-	uint16_t str_len = sprintf(cold_start, "$PSTMNMEAREQUEST,%X,%X*E2\r\n", low, high);
+	uint16_t str_len = sprintf(cold_start, "$PSTMCFGMSGL,0,1,0%X,00000000*62\r\n", low, high);
 	HAL_UART_Transmit(huart, cold_start, str_len, HAL_MAX_DELAY);
+	HAL_UART_Receive(huart, &cold_start, 20, 3000);
 
 	// This is for the use of bits 32 and 33.
 	/*uint32_t low  = (0x2 | 0x8000000);
@@ -36,7 +37,7 @@ void teseo_INIT(UART_HandleTypeDef* huart) {
 void cold_start(UART_HandleTypeDef* huart) {
 	// $PSTMCOLD to trigger a cold start
 
-	char cold[] = "$PSTMCOLD,,*\r\n"; // FIXME : Find Checksum
+	char cold[] = "$PSTMCOLD,,*3D\r\n"; // FIXME : Find Checksum
 	HAL_UART_Transmit(huart, cold, sizeof(cold), HAL_MAX_DELAY);
 }
 

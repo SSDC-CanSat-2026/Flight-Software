@@ -92,10 +92,19 @@ void HardFault_Handler(void)
 {
   /* USER CODE BEGIN HardFault_IRQn 0 */
 
+	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+
   /* USER CODE END HardFault_IRQn 0 */
   while (1)
   {
     /* USER CODE BEGIN W1_HardFault_IRQn 0 */
+
+	  HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+	  HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
+	  HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+	  for (uint32_t i = 0; i < 1000000; i++);
     /* USER CODE END W1_HardFault_IRQn 0 */
   }
 }
