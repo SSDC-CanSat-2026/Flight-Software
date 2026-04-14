@@ -38,6 +38,7 @@ void cold_start(UART_HandleTypeDef* huart) {
 	// $PSTMCOLD to trigger a cold start
 
 	char cold[] = "$PSTMCOLD,,*3D\r\n"; // FIXME : Find Checksum
+                                        // Found Checksum of the defaults.
 	HAL_UART_Transmit(huart, cold, sizeof(cold), HAL_MAX_DELAY);
 }
 
