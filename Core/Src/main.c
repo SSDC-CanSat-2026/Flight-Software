@@ -1284,13 +1284,11 @@ void StartReadSensors(void const * argument)
       //New code
       if (GPS_READY)
       {
-        GGA_Data_t gps_data = GGA_Data_t{ 0 };
+        gps_data = GGA_Data_t{ 0 };
 
         // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
         // into the receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
-        // I don't know why we have an extern global variable in LIV3F.h? We can just have a local copy here that will be populated
-        // with the gga data from the function here: Am I missing something in my understanding of how we are getting our data? 
-        int result = parse_gga(receive_buffer, &data);
+        int result = parse_gga(receive_buffer, &gps_data);
 
         //result is 1 on success
         if (result == 1)

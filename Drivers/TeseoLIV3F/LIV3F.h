@@ -60,7 +60,7 @@ typedef struct
     float longitude;    // decimal degrees
     float altitude;     // meters
 }GGA_Data_t;
-extern GGA_Data_t data;
+extern GGA_Data_t gps_data;
 
 void teseo_INIT(UART_HandleTypeDef* huart);
 void cold_start(UART_HandleTypeDef* huart);
