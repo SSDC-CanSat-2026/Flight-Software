@@ -24,11 +24,15 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "../Inc/config.h"
 #include "../Inc/global.h"
+#include "../Inc/microSD.h"
+#include "../Inc/FreeRTOSConfig.h"
 #include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
 #include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
 #include "../../Drivers/LC76G/LC76G.h"         // GPS Module
+#include "../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -79,9 +83,11 @@ osThreadId readSensorsHandle;
 osThreadId readCommandsHandle;
 osThreadId sendTelemetryHandle;
 osThreadId guideNavCtrlHandle;
+osThreadId InitHandle;
 osSemaphoreId globalDataHandle;
 /* USER CODE BEGIN PV */
 
+uint16_t Timer1, Timer2;
 uint8_t dma_buffer[BUFFER_SIZE]   = { 0 };
 char transmit_buffer[BUFFER_SIZE] = { 0 };
 char receive_buffer[BUFFER_SIZE]  = { 0 };
@@ -117,6 +123,7 @@ void StartReadSensors(void const * argument);
 void StartReadCommands(void const * argument);
 void StartSendTelemetry(void const * argument);
 void StartGNC(void const * argument);
+void StartInit(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -193,7 +200,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  init_mission_data();
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -225,6 +232,10 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
+  // Disable ALL chip selects
+  HAL_GPIO_WritePin(IMU_nCS_GPIO_Port, IMU_nCS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(BMP_nCS_GPIO_Port, BMP_nCS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(SD_nCS_GPIO_Port, SD_nCS_Pin, GPIO_PIN_SET);
 
   // Hold GPS in reset (LOW)
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
@@ -317,6 +328,10 @@ int main(void)
   /* definition and creation of guideNavCtrl */
   osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 512);
   guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
+
+  /* definition and creation of Init */
+  osThreadDef(Init, StartInit, osPriorityHigh, 0, 512);
+  InitHandle = osThreadCreate(osThread(Init), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -1220,6 +1235,33 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void vApplicationTickHook(void){
+	if(Timer1 > 0)
+		Timer1--;
+	if(Timer2 > 0)
+		Timer2--;
+}
+
+// This is a call back in case a thread has a stack overflow.
+// pcTaskName is the name of the offending task
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+{
+    (void)xTask;
+    (void)pcTaskName;
+    // Forces a breakpoint in the debugger
+    __BKPT(0);
+    for (;;);
+}
+
+// Incase there is an error with a Malloc somewhere
+void vApplicationMallocFailedHook(void)
+{
+    // Fires if pvPortMalloc fails — useful to catch heap exhaustion
+
+	// Forces a breakpoint in the debugger
+    __BKPT(0);
+    for (;;);
+}
 
 /* USER CODE END 4 */
 
@@ -1425,10 +1467,11 @@ void StartReadCommands(void const * argument)
     {
       // set command echo
       char c_echo[] = "CAL";
+      char new_state[]= "LAUNCH_PAD";
 
-      Mission_Data.STATE = "LAUNCH_PAD";
-      memset(altitude_history, 0, 3);
+      calibrateAltitudeHistory();
 
+      strcpy(global_mission_data.STATE, new_state);
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
     // MEC WIRE ON command -> actuate (servos?)
@@ -1467,20 +1510,20 @@ void StartSendTelemetry(void const * argument)
     // manually defines a critical region to ensure half-packets are never transmitted
 //    taskENTER_CRITICAL();
 
+	  HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
+
     // create an empty buffer for the telemetry packet string
     char telemetry_string[200];
 
     // Generic temporary variable for use in sprintf() calls, etc.
     uint16_t str_len = 0;
     // Request semaphore access
-    stat = osSemaphoreWait(globalDataHandle, 100);
-    if (stat != osOK) {
-	    osThreadYield();
-	    continue;
+    if (osSemaphoreWait(globalDataHandle, 100) != osOK) {
+    	continue; // Until we can acquire a lock on the data, we do not want to read from it
     }
 
     // fill the buffer with the first half of the packet
-    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d",
+    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
                       global_mission_data.TEAM_ID,      // team id (3174)
                       global_mission_data.MISSION_TIME, // mission time
                       global_mission_data.PACKET_COUNT, // packet count
@@ -1492,15 +1535,7 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.VOLTAGE,      // battery voltage (V)
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
-                      global_mission_data.GYRO_Y        // gyro yaw (degrees/s)
-    );
-
-    // send the first part of the packet over UART
-    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
-    // clear the buffer
-    memset(telemetry_string, 0, sizeof(telemetry_string));
-    // fill the buffer with the second half of the packet
-    str_len = sprintf(telemetry_string, ",%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
+                      global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
                       global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)
                       global_mission_data.ACCEL_P,                 // accelerometer pitch (degrees/s^2)
                       global_mission_data.ACCEL_Y,                 // accelerometer yaw (degrees/s^2)
@@ -1517,9 +1552,15 @@ void StartSendTelemetry(void const * argument)
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
 
-    osSemaphoreRelease(globalDataHandle);
+    write_SD(telemetry_string, str_len, "CanSat_Data_2026.csv");
 
-    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+    osSemaphoreRelease(globalDataHandle);
+//    xSemaphoreGive(globalDataHandle);
+    // exit the critical region once both packets have been sent
+//    taskEXIT_CRITICAL();
+    HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+    HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+
     osDelay(1000);
   }
   /* USER CODE END StartSendTelemetry */
@@ -1535,9 +1576,13 @@ void StartSendTelemetry(void const * argument)
 void StartGNC(void const * argument)
 {
   /* USER CODE BEGIN StartGNC */
+
   /* Infinite loop */
   for (;;)
   {
+
+//	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+    osDelay(250);
 	  if (GPS_READY) {
 
 		  GPS_READY = 0;
@@ -1545,6 +1590,58 @@ void StartGNC(void const * argument)
     osDelay(1);
   }
   /* USER CODE END StartGNC */
+}
+
+/* USER CODE BEGIN Header_StartInit */
+/**
+* @brief Function implementing the Init thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartInit */
+void StartInit(void const * argument)
+{
+  /* USER CODE BEGIN StartInit */
+	init_SD();
+
+	if (global_micro_sd_data.successfullyMounted) {
+		uint32_t result = load_config_from_sd();
+		if (result != APP_OK) {
+			HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+			// Set default config
+			set_default_config();
+			save_config_to_sd();
+		}
+	}
+	else {
+		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+		set_default_config();
+	}
+
+
+
+	// Read Config file and update accordingly
+	global_mission_data.ALTITUDE_OFFSET = global_config.ALTITUDE_OFFSET;
+	global_mission_data.PACKET_COUNT	= global_config.PACKET_COUNT;
+
+	strcpy(global_mission_data.MISSION_TIME, global_config.MISSION_TIME);
+	strcpy(global_mission_data.STATE, global_config.STATE);
+
+	// This lets you see the minimum amount of the stack was remaining at any time
+	//  during a thread's execution.
+	UBaseType_t stackHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
+
+	HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
+
+
+
+	// Init task has nothing left to do — delete itself
+//	osThreadTerminate(osThreadGetId());
+	vTaskDelete(NULL);
+
+	for(;;);
+
+  /* USER CODE END StartInit */
 }
 
 /**

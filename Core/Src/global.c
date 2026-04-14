@@ -8,15 +8,16 @@
 #include "global.h"
 
 // TODO: make this false before any demonstrations
-volatile uint8_t telemetry_enable = 0;
-volatile uint8_t gps_time_enable = 0;
-volatile uint8_t is_calibrated = 0;
-volatile uint8_t mec_wire_enable = 0;
-volatile uint8_t simulation_enable = 0;
-volatile uint8_t simulation_pre = 0;
-volatile double simulated_pressure = 0.0;
+volatile uint8_t telemetry_enable 		= 0;
+volatile uint8_t gps_time_enable 		= 0;
+volatile uint8_t is_calibrated 			= 0;
+volatile uint8_t mec_wire_enable 		= 0;
+volatile uint8_t simulation_enable 		= 0;
+volatile uint8_t simulation_pre 		= 0;
+volatile double simulated_pressure 		= 0.0;
 
-Mission_Data global_mission_data = {0};
+Mission_Data 	global_mission_data 	= {0};
+Micro_SD_Data	global_micro_sd_data;
 
 void init_mission_data(void)
 {
@@ -54,3 +55,5 @@ void init_mission_data(void)
 
 	global_mission_data.ALTITUDE_OFFSET = 0.0;
 }
+
+
