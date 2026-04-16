@@ -13,6 +13,10 @@ void init_SD(void){
 	if (f_mount(&USERFatFs, USERPath, 1) != FR_OK) {
 		global_micro_sd_data.successfullyMounted = 0;
 
+		char header_string[203];
+		uint16_t str_len = sprintf(header_string, "TEAM_ID,MISSION_TIME,PACKET_COUNT,MODE,STATE,ALTITUDE,TEMPERATURE,PRESSURE,VOLTAGE,CURRENT,GYRO_R,GYRO_P,GYRO_Y,ACCEL_R,ACCEL_P,ACCEL_Y,GPS_TIME,GPS_ALTITUDE,GPS_LATITUDE,GPS_LONGITUDE,GPS_SATS,CMD_ECHO");
+		write_SD(header_string, str_len, "CanSat_Data_2026.csv");
+		
 		// TODO: ADD LED DEBUGGING LIGHTS HERE FOR LED
 		return;
 	}
