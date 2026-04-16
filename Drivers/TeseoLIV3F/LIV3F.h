@@ -34,6 +34,7 @@
  * • Bit 33 (0x2)		$PSTMPVQ	Message   (If bit 32 is used)
  *
  * BAUD rates are configured using $PSTMCFGPORT command.
+ *  Default value of 9600
  *
  * The NMEA Checksum is the bitwise XOR of the ASCII codes of all characters between
  *  the '$' and '*', not inclusive.

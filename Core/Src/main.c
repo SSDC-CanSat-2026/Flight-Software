@@ -28,8 +28,7 @@
 #include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
 #include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
-#include "../../Drivers/LC76G/LC76G.h"         // GPS Module
-#include "../../Drivers/TeseoLIV3F/LIV3F.h"
+#include "../../Drivers/TeseoLIV3F/LIV3F.h"		  // GPS Module
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -132,9 +131,9 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
   {
     if (!GPS_READY)
     {
+		memcpy(receive_buffer, dma_buffer, size);
 		GPS_SIZE = size;
 		GPS_READY = 1;
-		memcpy(receive_buffer, dma_buffer, size);
 		memset(dma_buffer, 0, size);
     }
   }
@@ -1098,7 +1097,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 115200;
+  huart3.Init.BaudRate = 9600;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
@@ -1237,6 +1236,8 @@ void StartReadSensors(void const * argument)
   MX_USB_Device_Init();
   /* USER CODE BEGIN 5 */
   osStatus stat = osErrorOS;
+
+  HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
   /* Infinite loop */
   for (;;)
   {
@@ -1245,6 +1246,7 @@ void StartReadSensors(void const * argument)
 	  osThreadYield();
 	  continue;
 	}
+
     // #1 PRIORITY: make sure mutex unlocks no matter what!!!!
 
     // -> if a HIGHER priority task attempts to access a locked resource,
@@ -1283,24 +1285,25 @@ void StartReadSensors(void const * argument)
       //New code
       if (GPS_READY)
       {
-        gps_data = GGA_Data_t{ 0 };
-
         // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
         // into the receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
         int result = parse_gga(receive_buffer, &gps_data);
 
+
         //result is 1 on success
         if (result == 1)
         {
-          global_mission_data.GPS_LATITUDE = gps_data->latitude;
-          global_mission_data.GPS_LONGITUDE = gps_data->longitude;
-          global_mission_data.GPS_ALTITUDE = gps_data->altitude;
-          global_mission_data.GPS_SATS = gps_data->num_satellites;
+        	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+          global_mission_data.GPS_LATITUDE = gps_data.latitude;
+          global_mission_data.GPS_LONGITUDE = gps_data.longitude;
+          global_mission_data.GPS_ALTITUDE = gps_data.altitude;
+          global_mission_data.GPS_SATS = gps_data.num_satellites;
         }
+        GPS_READY = 0;
       }
 
 //    snprintf(global_mission_data.GPS_TIME, 9, "%02d:%02d:%02d",
-//             gps_data->time_H, gps_data->time_M, gps_data->time_S);
+//             gps_data.time_H, gps_data.time_M, gps_data.time_S);
 
 //    RTC_TimeTypeDef sTime = {0};
 //    // Needed to unlock time registers
@@ -1331,6 +1334,7 @@ void StartReadSensors(void const * argument)
 
     // Relinquish access to the global_mission_data struct
     osSemaphoreRelease(globalDataHandle);
+    osDelay(250);
   }
   /* USER CODE END 5 */
 }
@@ -1345,6 +1349,7 @@ void StartReadSensors(void const * argument)
 void StartReadCommands(void const * argument)
 {
   /* USER CODE BEGIN StartReadCommands */
+	osStatus stat = osErrorOS;
   for (;;)
   {
     // do interrupts have to be enabled for this? they are in the previous project
@@ -1353,13 +1358,14 @@ void StartReadCommands(void const * argument)
     // something tells me we could just have a char array to begin with but i would wanna
     // wait until we can test to make changes for sure
     uint8_t command_buffer[CMD_BUFFER_LEN];
-    HAL_UART_Receive_IT(&huart3, command_buffer, CMD_BUFFER_LEN);
+//    HAL_UART_Receive_IT(&huart3, command_buffer, CMD_BUFFER_LEN);
 
     char *char_arr = (char *)command_buffer;
     char rx_string[CMD_BUFFER_LEN];
 
-    int8_t num_tokens = osSemaphoreWait(globalDataHandle, 100);
-	if (num_tokens <= 0) {
+    stat = osSemaphoreWait(globalDataHandle, 100);
+	if (stat != osOK) {
+		osThreadYield();
 		continue; // Semaphore is either unavailable or inputs are wrong
 	}
 
@@ -1440,8 +1446,8 @@ void StartReadCommands(void const * argument)
       // set command echo
       char c_echo[] = "CAL";
 
-      Mission_Data.STATE = "LAUNCH_PAD";
-      memset(altitude_history, 0, 3);
+//      global_mission_Data.STATE = "LAUNCH_PAD";
+//      memset(altitude_history, 0, 3);
 
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
@@ -1494,7 +1500,7 @@ void StartSendTelemetry(void const * argument)
     }
 
     // fill the buffer with the first half of the packet
-    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d",
+    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
                       global_mission_data.TEAM_ID,      // team id (3174)
                       global_mission_data.MISSION_TIME, // mission time
                       global_mission_data.PACKET_COUNT, // packet count
@@ -1506,15 +1512,7 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.VOLTAGE,      // battery voltage (V)
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
-                      global_mission_data.GYRO_Y        // gyro yaw (degrees/s)
-    );
-
-    // send the first part of the packet over UART
-    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
-    // clear the buffer
-    memset(telemetry_string, 0, sizeof(telemetry_string));
-    // fill the buffer with the second half of the packet
-    str_len = sprintf(telemetry_string, ",%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
+                      global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
                       global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)
                       global_mission_data.ACCEL_P,                 // accelerometer pitch (degrees/s^2)
                       global_mission_data.ACCEL_Y,                 // accelerometer yaw (degrees/s^2)
@@ -1552,11 +1550,8 @@ void StartGNC(void const * argument)
   /* Infinite loop */
   for (;;)
   {
-	  if (GPS_READY) {
-
-		  GPS_READY = 0;
-	  }
-    osDelay(1);
+	  HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
+    osDelay(250);
   }
   /* USER CODE END StartGNC */
 }

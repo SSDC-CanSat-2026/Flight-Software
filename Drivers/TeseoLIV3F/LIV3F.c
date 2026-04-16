@@ -10,35 +10,36 @@
 void teseo_INIT(UART_HandleTypeDef* huart) {
 	/*
 	 * Low 32 bits:
-	 * • Bit 1	(0x2) 		$GPGGA 		Message
+	 * • Bit 1	(0x2) 		$GPGGA 		Message   (Always)
 	 * • Bit 27 (0x800000)	$PSTMKFCOV 	Message   (Possibly)
 	 * High 32 bits
 	 * • Bit 32 (0x1)		$PSTMPV		Message	  (Possibly)
 	 * • Bit 33 (0x2)		$PSTMPVQ	Message   (If bit 32 is used)
 	 */
 
-	// This is for NOT the use of bits 32 and 33.
-	uint32_t low  = (0x2 | 0x8000000);
-	uint32_t high = 0;
-	char cold_start[100];
-	uint16_t str_len = sprintf(cold_start, "$PSTMCFGMSGL,0,1,0%X,00000000*62\r\n", low, high);
-	HAL_UART_Transmit(huart, cold_start, str_len, HAL_MAX_DELAY);
-	HAL_UART_Receive(huart, &cold_start, 20, 3000);
+    // Just Bit 1
+    char bitmask[] = "$PSTMCFGMSGL,0,1,00000002,00000000*4E\r\n";
+	HAL_UART_Transmit(huart, bitmask, sizeof(bitmask), HAL_MAX_DELAY);
+	HAL_UART_Receive(huart, &bitmask, 20, 3000); // For debugging
 
-	// This is for the use of bits 32 and 33.
-	/*uint32_t low  = (0x2 | 0x8000000);
-	uint32_t high = (0x1 | 0x2);
-	char cold_start[100];
-	uint16_t str_len = sprintf(cold_start, "$PSTMNMEAREQUEST,%X,%X*E5\r\n", low, high);
-	HAL_UART_Transmit(huart, cold_start, str_len, HAL_MAX_DELAY);*/
+	// This is for the use of bit 27.
+	/*
+    char bitmask[] = "$PSTMCFGMSGL,0,1,08000002,00000000*46\r\n";
+	HAL_UART_Transmit(huart, bitmask, sizeof(bitmask), HAL_MAX_DELAY);
+    */
+
+	// This is for the use of bits 27, 32, and 33.
+	/*
+    char bitmask[] = "$PSTMCFGMSGL,0,1,08000002,00000003*45\r\n"
+	HAL_UART_Transmit(huart, bitmask, sizeof(bitmask), HAL_MAX_DELAY);
+    */
 
 }
 
 void cold_start(UART_HandleTypeDef* huart) {
 	// $PSTMCOLD to trigger a cold start
 
-	char cold[] = "$PSTMCOLD,,*3D\r\n"; // FIXME : Find Checksum
-                                        // Found Checksum of the defaults.
+	char cold[] = "$PSTMCOLD,,*1E\r\n";
 	HAL_UART_Transmit(huart, cold, sizeof(cold), HAL_MAX_DELAY);
 }
 
