@@ -65,9 +65,9 @@ typedef struct
 
 typedef struct
 {
+	int successfullyMounted;
 	FATFS FatFs;
 	FIL Fil;
-	int successfullyMounted;
 } Micro_SD_Data;
 
 extern Mission_Data 	global_mission_data;

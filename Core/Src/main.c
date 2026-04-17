@@ -319,19 +319,19 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of readSensors */
-  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 512);
+  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 600);
   readSensorsHandle = osThreadCreate(osThread(readSensors), NULL);
 
   /* definition and creation of readCommands */
-  osThreadDef(readCommands, StartReadCommands, osPriorityNormal, 0, 512);
+  osThreadDef(readCommands, StartReadCommands, osPriorityNormal, 0, 600);
   readCommandsHandle = osThreadCreate(osThread(readCommands), NULL);
 
   /* definition and creation of sendTelemetry */
-  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 512);
+  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 600);
   sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
 
   /* definition and creation of guideNavCtrl */
-  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 512);
+  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 600);
   guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
 
   /* definition and creation of Init */
@@ -1329,6 +1329,9 @@ void StartReadSensors(void const * argument)
    global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
    global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
 
+   uint16_t voltage;
+   BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+
 //    LC76G_gps_data* gps_data = LC76G_read_data(&huart5);
 //    global_mission_data.GPS_LATITUDE = gps_data->lat;
 //    global_mission_data.GPS_LONGITUDE = gps_data->lon;
@@ -1367,14 +1370,17 @@ void StartReadSensors(void const * argument)
 
     // Relinquish access to the global_mission_data struct
 
-    snprintf(testing_data, sizeof(testing_data), "TESTING,%lf,%lf,%lf,%lf,%lf,%lf", global_mission_data.ACCEL_X, global_mission_data.ACCEL_Y, 
-    global_mission_data.ACCEL_Z, global_mission_data.GYRO_R, global_mission_data.GYRO_P, global_mission_data.GYRO_Y);
+//    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
+    snprintf(testing_data, sizeof(testing_data), "TESTING,%lf,%lf,%lf,%lf,%lf,%lf", global_mission_data.ACCEL_X, global_mission_data.ACCEL_Y,
+    									global_mission_data.ACCEL_Z, global_mission_data.GYRO_R, global_mission_data.GYRO_P, global_mission_data.GYRO_Y);
 
     size_t testing_length = strlen(testing_data);
 
-    write_SD(testing_data, testing_length, "CanSat_Data_2026.csv");
+    FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
 
     osSemaphoreRelease(globalDataHandle);
+
+//    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -1526,8 +1532,6 @@ void StartSendTelemetry(void const * argument)
     // manually defines a critical region to ensure half-packets are never transmitted
 //    taskENTER_CRITICAL();
 
-	  HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
-
     // create an empty buffer for the telemetry packet string
     char telemetry_string[200];
 
@@ -1537,6 +1541,8 @@ void StartSendTelemetry(void const * argument)
     if (osSemaphoreWait(globalDataHandle, 100) != osOK) {
     	continue; // Until we can acquire a lock on the data, we do not want to read from it
     }
+
+    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
     // fill the buffer with the first half of the packet
     str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
@@ -1571,7 +1577,6 @@ void StartSendTelemetry(void const * argument)
     // write_SD(telemetry_string, str_len, "CanSat_Data_2026.csv");
 
     osSemaphoreRelease(globalDataHandle);
-//    xSemaphoreGive(globalDataHandle);
     // exit the critical region once both packets have been sent
 //    taskEXIT_CRITICAL();
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
@@ -1604,6 +1609,13 @@ void StartGNC(void const * argument)
 		  GPS_READY = 0;
 	  }
     osDelay(1);
+
+//    if (global_micro_sd_data.successfullyMounted) {
+//    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
+//    }
+//    else {
+//    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_RESET);
+//    }
 
     HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
   }
