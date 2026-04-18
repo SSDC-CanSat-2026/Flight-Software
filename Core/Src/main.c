@@ -1312,6 +1312,21 @@ void StartReadSensors(void const * argument)
 //    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
 //    determineState(global_mission_data.ALTITUDE);
 
+		if(calibrating)
+		{
+			cal_sum += global_mission_data.PRESSURE;
+			cal_count++;
+
+			if(cal_count >= 10)
+			{
+				float pressure_avg = cal_sum / cal_count;
+				global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
+
+				calibrating = 0;
+				is_calibrated = 1;
+			}
+		}
+
 //    ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
 //    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
 //    global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
@@ -1469,7 +1484,9 @@ void StartReadCommands(void const * argument)
       char c_echo[] = "CAL";
       char new_state[]= "LAUNCH_PAD";
 
-      calibrateAltitudeHistory();
+      calibrating = 1;
+      cal_sum = 0;
+      cal_count = 0;
 
       strcpy(global_mission_data.STATE, new_state);
       strcpy(global_mission_data.CMD_ECHO, c_echo);
