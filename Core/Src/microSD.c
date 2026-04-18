@@ -98,6 +98,7 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
     char filepath[32];
     snprintf(filepath, sizeof(filepath), "%s%s", USERPath, filename);
 
+    check_fatfs_guards();
     result = f_open(fil, filepath, FA_WRITE | FA_OPEN_ALWAYS);
 //    result = f_open(fil, filepath, FLAGS);
     if (result != FR_OK) return 1;
@@ -107,9 +108,17 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
     if (result != FR_OK) { ret = 2; goto cleanup; }
 
     result = f_write(fil, telemetry_string, str_len, &bytesWritten);
+
+    check_fatfs_guards();
+
     if (result != FR_OK || bytesWritten != str_len) { ret = 3; goto cleanup; }
 
-    f_write(fil, "\n", 1, &bytesWritten);
+    check_fatfs_guards();
+
+    result = f_write(fil, "\n", 1, &bytesWritten);
+    if (result != FR_OK || bytesWritten != 1) { ret = 3; goto cleanup; }
+
+    check_fatfs_guards();
 
     result = f_sync(fil);
     if (result != FR_OK) { ret = 4; goto cleanup; }
@@ -119,7 +128,9 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
 cleanup:
     if (fileIsOpen)
     {
+    	check_fatfs_guards();
         result = f_close(fil);
+        check_fatfs_guards();
         if (result != FR_OK) ret = 5;
     }
     return ret;
