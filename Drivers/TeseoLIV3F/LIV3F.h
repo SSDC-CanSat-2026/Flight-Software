@@ -67,6 +67,7 @@ void teseo_INIT(UART_HandleTypeDef* huart);
 void cold_start(UART_HandleTypeDef* huart);
 
 int parse_gga(char *sentence, GGA_Data_t *out);
+void send_getrtc(UART_HandleTypeDef* huart);
 
 // Just copy the below functions from the LC76(G) driver
 // Specifically from the modified 2025 FSW code.

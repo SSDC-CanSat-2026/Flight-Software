@@ -25,6 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "../Inc/global.h"
+#include "../Inc/xbee.h"
 #include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
 #include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
@@ -39,8 +40,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define BUFFER_SIZE 128
-#define XBEE_MAX_PAYLOAD 80   // Safe value
+#define BUFFER_SIZE 		256
+#define XBEE_MAX_PAYLOAD 	80   // Safe value
 
 /* USER CODE END PD */
 
@@ -73,7 +74,7 @@ TIM_HandleTypeDef htim17;
 UART_HandleTypeDef huart5;
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_uart5_rx;
-DMA_HandleTypeDef hdma_usart3_tx;
+DMA_HandleTypeDef hdma_usart3_rx;
 
 osThreadId readSensorsHandle;
 osThreadId readCommandsHandle;
@@ -82,16 +83,19 @@ osThreadId guideNavCtrlHandle;
 osSemaphoreId globalDataHandle;
 /* USER CODE BEGIN PV */
 
-uint8_t dma_buffer[BUFFER_SIZE]   = { 0 };
+uint8_t gps_dma_buffer[BUFFER_SIZE]   = { 0 };
+uint8_t xbee_dma_buffer[BUFFER_SIZE]  = { 0 };
 char transmit_buffer[BUFFER_SIZE] = { 0 };
 char receive_buffer[BUFFER_SIZE]  = { 0 };
 char command_buffer[BUFFER_SIZE]  = { 0 };
 
 // Flags for GPS and XBEE since they use UART DMA
-volatile uint16_t GPS_SIZE 	   = 0;
-volatile uint8_t GPS_READY 	   = 0;
-volatile uint16_t COMMAND_SIZE = 0;
-volatile uint8_t COMMAND_READY = 0;
+volatile uint16_t GPS_SIZE 	   	= 0;
+volatile uint8_t GPS_READY 	   	= 0;
+volatile uint16_t COMMAND_SIZE 	= 0;
+volatile uint8_t COMMAND_READY 	= 0;
+
+const uint64_t DD				= 0x0013A200425E92E9; // Destination Device
 
 /* USER CODE END PV */
 
@@ -131,29 +135,44 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
   {
     if (!GPS_READY)
     {
-		memcpy(receive_buffer, dma_buffer, size);
+		memcpy(receive_buffer, gps_dma_buffer, size);
 		GPS_SIZE = size;
 		GPS_READY = 1;
-		memset(dma_buffer, 0, size);
+		memset(gps_dma_buffer, 0, size);
     }
+
+    if (__HAL_UART_GET_FLAG(&huart5, UART_FLAG_ORE)) {
+      __HAL_UART_CLEAR_FLAG(&huart5, UART_CLEAR_OREF);
+    }
+
+    HAL_UARTEx_ReceiveToIdle_DMA(huart, gps_dma_buffer, BUFFER_SIZE);
+    __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
+
   }
+
   else if (huart->Instance == USART3)
   {
     if (!COMMAND_READY)
     {
-		COMMAND_SIZE = size;
+    	memcpy(command_buffer, xbee_dma_buffer, size);
+    	COMMAND_SIZE = size;
 		COMMAND_READY = 1;
-		memcpy(command_buffer, dma_buffer, size);
+		memset(xbee_dma_buffer, 0, size);
+
     }
+
+    if (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_ORE)) {
+    	__HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF);
+    }
+
+    HAL_UARTEx_ReceiveToIdle_DMA(huart, xbee_dma_buffer, BUFFER_SIZE);
+    __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
   }
   else
   {
     // FIXME : Change this for a DBG LED in the new code
 	  HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
   }
-
-  HAL_UARTEx_ReceiveToIdle_DMA(huart, dma_buffer, BUFFER_SIZE);
-  __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
 }
 
 void HAL_UARTEx_ErrorCallback(UART_HandleTypeDef *huart) {
@@ -225,6 +244,8 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
+  init_mission_data();
+
 
   // Hold GPS in reset (LOW)
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
@@ -258,6 +279,8 @@ int main(void)
 
   teseo_INIT(&huart5);
 
+  HAL_GPIO_WritePin(XBEE_RST_GPIO_Port, XBEE_RST_Pin, GPIO_PIN_SET);
+
 
   // Enable DMA call backs
   // UART 5
@@ -266,17 +289,17 @@ int main(void)
     __HAL_UART_CLEAR_FLAG(&huart5, UART_CLEAR_OREF);
   }
   // receive until idle, then trigger interrupt
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart5, dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart5, gps_dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
   __HAL_DMA_DISABLE_IT(huart5.hdmarx, DMA_IT_HT); // Disables "Half Transfer" interrupt
 
   // USART 3
   // Check if ORE flag is set, which can happen if data is present on UART RX line
-//  if (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_ORE)) {
-//    __HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF);
-//  }
-//  // receive until idle, then trigger interrupt
-//  HAL_UARTEx_ReceiveToIdle_DMA(&huart3, dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
-//  __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT); // Disables "Half Transfer" interrupt
+  if (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_ORE)) {
+    __HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF);
+  }
+  // receive until idle, then trigger interrupt
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart3, xbee_dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
+  __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT); // Disables "Half Transfer" interrupt
 
   /* USER CODE END 2 */
 
@@ -1097,7 +1120,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600;
+  huart3.Init.BaudRate = 115200;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
@@ -1143,9 +1166,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-  /* DMA1_Channel3_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
+  /* DMA1_Channel2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
 }
 
@@ -1288,8 +1311,9 @@ void StartReadSensors(void const * argument)
         // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
         // into the receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
         int result = parse_gga(receive_buffer, &gps_data);
+        GPS_READY = 0;
 
-
+        send_getrtc(&huart5);
         //result is 1 on success
         if (result == 1)
         {
@@ -1299,7 +1323,6 @@ void StartReadSensors(void const * argument)
           global_mission_data.GPS_ALTITUDE = gps_data.altitude;
           global_mission_data.GPS_SATS = gps_data.num_satellites;
         }
-        GPS_READY = 0;
       }
 
 //    snprintf(global_mission_data.GPS_TIME, 9, "%02d:%02d:%02d",
@@ -1350,41 +1373,57 @@ void StartReadCommands(void const * argument)
 {
   /* USER CODE BEGIN StartReadCommands */
 	osStatus stat = osErrorOS;
+
+	char rx_string[25];
   for (;;)
   {
+
+	if (!COMMAND_READY) {
+		osThreadYield();
+		continue;
+	}
     // do interrupts have to be enabled for this? they are in the previous project
 
     // i honestly dk if this is peak performance tbh
     // something tells me we could just have a char array to begin with but i would wanna
     // wait until we can test to make changes for sure
-    uint8_t command_buffer[CMD_BUFFER_LEN];
-//    HAL_UART_Receive_IT(&huart3, command_buffer, CMD_BUFFER_LEN);
 
-    char *char_arr = (char *)command_buffer;
-    char rx_string[CMD_BUFFER_LEN];
+	if (command_buffer[0] != 0x7E) {
+		COMMAND_READY = 0;
+		continue;
+	}
+
+	xbee_status_t status = xbee_decode_tx_request(&command_buffer[0], COMMAND_SIZE, &rx_string[0], 20, NULL);
+	if (status != XBEE_OK) {
+		COMMAND_READY = 0;
+		continue;
+	}
+
 
     stat = osSemaphoreWait(globalDataHandle, 100);
 	if (stat != osOK) {
 		osThreadYield();
 		continue; // Semaphore is either unavailable or inputs are wrong
 	}
+	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
 
-    strncpy(rx_string, char_arr, CMD_BUFFER_LEN);
-    if (strncmp(rx_string, "CMD,3174,CX,ON", 14) == 0)
+    if (strncmp(rx_string, "CMD,1075,CX,ON", 14) == 0)
     {
       // set command echo in the global mission struct
       char c_echo[] = "CXON";
       strcpy(global_mission_data.CMD_ECHO, c_echo);
+      telemetry_enable = 1;
     }
     // CX OFF command -> stop transmitting telemetry packets
-    else if (strncmp(rx_string, "CMD,3174,CX,OFF", 15) == 0)
+    else if (strncmp(rx_string, "CMD,1075,CX,OFF", 15) == 0)
     {
       // set command echo
       char c_echo[] = "CXOFF";
       strcpy(global_mission_data.CMD_ECHO, c_echo);
+      telemetry_enable = 0;
     }
     // ST command -> set mission time
-    else if (strncmp(rx_string, "CMD,3174,ST,", 12) == 0)
+    else if (strncmp(rx_string, "CMD,1075,ST,", 12) == 0)
     {
       // parse the timestamp to set to
       char arg[9];
@@ -1398,14 +1437,14 @@ void StartReadCommands(void const * argument)
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
     // SIM ENABLE command -> allow simulation mode to be activated
-    else if (strncmp(rx_string, "CMD,3174,SIM,ENABLE", 19) == 0)
+    else if (strncmp(rx_string, "CMD,1075,SIM,ENABLE", 19) == 0)
     {
       // set command echo
       char c_echo[] = "SIMENABLE";
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
     // SIM ACTIVATE command -> turn simulation mode on
-    else if (strncmp(rx_string, "CMD,3174,SIM,ACTIVATE", 21) == 0)
+    else if (strncmp(rx_string, "CMD,1075,SIM,ACTIVATE", 21) == 0)
     {
       // check that simulation mode has been activated
       if (simulation_pre == 1)
@@ -1418,14 +1457,14 @@ void StartReadCommands(void const * argument)
       }
     }
     // SIM DISABLE command -> turn simulation mode off
-    else if (strncmp(rx_string, "CMD,3174,SIM,DISABLE", 20) == 0)
+    else if (strncmp(rx_string, "CMD,1075,SIM,DISABLE", 20) == 0)
     {
       // set command echo
       char c_echo[] = "SIMDIS";
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
     // SIMP command -> add simulated pressure data
-    else if (strncmp(rx_string, "CMD,3174,SIMP,", 14) == 0)
+    else if (strncmp(rx_string, "CMD,1075,SIMP,", 14) == 0)
     {
       // parse inputed pressure data
 //      char *pressure_str = rx_string + 14;
@@ -1441,7 +1480,7 @@ void StartReadCommands(void const * argument)
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
     // CAL command -> calibrate altitude
-    else if (strncmp(rx_string, "CMD,3174,CAL", 12) == 0)
+    else if (strncmp(rx_string, "CMD,1075,CAL", 12) == 0)
     {
       // set command echo
       char c_echo[] = "CAL";
@@ -1452,15 +1491,17 @@ void StartReadCommands(void const * argument)
       strcpy(global_mission_data.CMD_ECHO, c_echo);
     }
     // MEC WIRE ON command -> actuate (servos?)
-    else if (strncmp(rx_string, "CMD,3174,MEC,WIRE,ON", 20) == 0)
+    else if (strncmp(rx_string, "CMD,1075,MEC,WIRE,ON", 20) == 0)
     {
       // activate MEC command
     }
     // MEC WIRE OFF command -> stop actuations
-    else if (strncmp(rx_string, "CMD,3174,MEC,WIRE,OFF", 21) == 0)
+    else if (strncmp(rx_string, "CMD,1075,MEC,WIRE,OFF", 21) == 0)
     {
       // turn off MEC command (servos for GNC?)
     }
+
+    COMMAND_READY = 0;
 
     osSemaphoreRelease(globalDataHandle);
 
@@ -1487,6 +1528,11 @@ void StartSendTelemetry(void const * argument)
     // manually defines a critical region to ensure half-packets are never transmitted
 //    taskENTER_CRITICAL();
 
+	if (!telemetry_enable) {
+		osThreadYield();
+		continue;
+	}
+
     // create an empty buffer for the telemetry packet string
     char telemetry_string[200];
 
@@ -1500,8 +1546,8 @@ void StartSendTelemetry(void const * argument)
     }
 
     // fill the buffer with the first half of the packet
-    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
-                      global_mission_data.TEAM_ID,      // team id (3174)
+    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
+                      global_mission_data.TEAM_ID,      // team id (1075)
                       global_mission_data.MISSION_TIME, // mission time
                       global_mission_data.PACKET_COUNT, // packet count
                       global_mission_data.MODE,         // mode
@@ -1510,6 +1556,7 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.TEMPERATURE,  // temperature (C)
                       global_mission_data.PRESSURE,     // pressure (kPa)
                       global_mission_data.VOLTAGE,      // battery voltage (V)
+					  0,
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
                       global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
@@ -1523,8 +1570,48 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.GPS_SATS,                // # of connected GPS satellites
                       global_mission_data.CMD_ECHO                 // tracks previously received command
     );
-    // send the second half of the packet over UART
-    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
+
+	uint8_t frame[300];
+	uint8_t i = 0;
+	// Start
+	frame[i++] = 0x7E;
+	// Temp Length
+	frame[i++] = 0x00;
+	frame[i++] = 0x00;
+	// Frame type
+	frame[i++] = 0x10; // Transmit request
+	// Frame ID
+	frame[i++] = 0x01;
+	// 64-bit DD
+	for (int8_t j = 7; j >= 0; j--) {
+		frame[i++] = (DD >> (8*j)) & 0xFF;
+	}
+	// 16-bit address
+	frame[i++] = 0xFF;
+	frame[i++] = 0xFE;
+	// Broadcast range
+	frame[i++] = 0x00;
+	// Options
+	frame[i++] = 0x00;
+
+	memcpy(&frame[i], telemetry_string, str_len);
+	i += str_len;
+
+	// Proper length assignment:
+	uint16_t length = i-3;
+	frame[1] = (length>>8) & 0xFF;
+	frame[2] = length & 0xFF;
+
+	// Checksum
+	uint8_t sum = 0;
+	// j = 3 to exclude start delimiter and length bytes
+	for (uint8_t j = 3; j < i; j++) {
+		sum += frame[j];
+	}
+	frame[i++] = 0xFF - sum;
+
+	HAL_UART_Transmit(&huart3, frame, i, HAL_MAX_DELAY);
+//    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
 
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;

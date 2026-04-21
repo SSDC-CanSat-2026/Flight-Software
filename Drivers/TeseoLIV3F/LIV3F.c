@@ -17,10 +17,30 @@ void teseo_INIT(UART_HandleTypeDef* huart) {
 	 * • Bit 33 (0x2)		$PSTMPVQ	Message   (If bit 32 is used)
 	 */
 
+	const char* cmds[] = {
+		"$PSTMCFGMSGL,0,0,00000000,00000000*4D\r\n",
+		"$PSTMCFGMSGL,1,0,00000000,00000000*4C\r\n",
+		"$PSTMCFGMSGL,2,0,00000000,00000000*4F\r\n",
+		"$PSTMCFGMSGL,0,1,00000002,00000000*4E\r\n"
+//	        "$PSTMSAVEPAR*5A\r\n"
+	};
+
+	for (int i = 0; i < 4; i++) {
+		HAL_UART_Transmit(huart, (uint8_t*)cmds[i], strlen(cmds[i]), HAL_MAX_DELAY);
+		HAL_Delay(100);
+	}
     // Just Bit 1
-    char bitmask[] = "$PSTMCFGMSGL,0,1,00000002,00000000*4E\r\n";
-	HAL_UART_Transmit(huart, bitmask, sizeof(bitmask), HAL_MAX_DELAY);
-	HAL_UART_Receive(huart, &bitmask, 20, 3000); // For debugging
+//	char bitmask_clear[] = "$PSTMCFGMSGL,0,0,FFFFFFFD,FFFFFFFF*4F\r\n";
+//	char bitmask_clear[] = "$PSTMCFGMSGL,0*A3\r\n";
+//	char bitmask_clear[] = "$HELLO*00\r\n";
+//	HAL_UART_Transmit(huart, bitmask_clear, strlen(bitmask_clear), HAL_MAX_DELAY);
+//	HAL_Delay(1000);
+//    char bitmask_set[] = "$PSTMCFGMSGL,0,1,00000002,00000000*4E\r\n";
+//    char bitmask_set[] = "$PSTMCFGMSGL,0,0,FFFFFFFD,FFFFFFFF*4F\r\n";
+//	char bitmask_set[] = "$PSTMCFGMSGL,0,10,00000000,00000000*7C\r\n";
+//	HAL_UART_Transmit(huart, bitmask_set, strlen(bitmask_set), HAL_MAX_DELAY);
+//	char receive[100];
+//	HAL_UART_Receive(huart, &receive, 100, 2000000);
 
 	// This is for the use of bit 27.
 	/*
@@ -33,6 +53,9 @@ void teseo_INIT(UART_HandleTypeDef* huart) {
     char bitmask[] = "$PSTMCFGMSGL,0,1,08000002,00000003*45\r\n"
 	HAL_UART_Transmit(huart, bitmask, sizeof(bitmask), HAL_MAX_DELAY);
     */
+
+
+//	char get_bitmask[] = "PSTMNMEAREQUEST,<msglist_l>,<msglist_h>*<checksum><cr><lf>"
 
 }
 
@@ -220,4 +243,11 @@ static float fast_atof(const char *s) {
     }
 
     return negative ? -result : result;
+}
+
+
+
+void send_getrtc(UART_HandleTypeDef* huart) {
+	char cmd[] = "PSTMDATUMSELECT,0*DB\r\n";
+	HAL_UART_Transmit(huart, cmd, sizeof(cmd), HAL_MAX_DELAY);
 }
