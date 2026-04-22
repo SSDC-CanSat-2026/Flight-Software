@@ -4,6 +4,8 @@
 
 #include "../Inc/xbee.h"
 
+const uint64_t DD = 0x0013A200425E92E9; // Destination Device
+
 /*
  * xbee_decode_tx_request
  *
@@ -49,7 +51,7 @@ xbee_status_t xbee_decode_tx_request(
     }
 
     /* ── 3. Frame type ───────────────────────────────────────────────── */
-    if (packet[OFF_FRAME_TY] != XBEE_FRAME_TX_REQ) {
+    if (packet[OFF_FRAME_TY] != XBEE_FRAME_RX) {
         return XBEE_ERR_WRONG_TYPE;
     }
 
@@ -103,4 +105,46 @@ xbee_status_t xbee_decode_tx_request(
     }
 
     return XBEE_OK;
+}
+
+xbee_status_t xbee_send_api_packet(const char* packet_data, uint16_t packet_len, char* out_buf, uint16_t out_buf_len, uint16_t* out_data_len) {
+	uint8_t i = 0;
+    uint32_t data_len = (packet_len < out_buf_len) ? packet_len : out_buf_len;
+
+	// Start
+	out_buf[i++] = XBEE_START_DELIM;
+	// Temp Length
+	out_buf[i++] = 0x00;
+	out_buf[i++] = 0x00;
+	// Frame type
+	out_buf[i++] = XBEE_FRAME_TX_REQ;
+	// Frame ID
+	out_buf[i++] = 0x01;
+	// 64-bit DD
+	for (int8_t j = 7; j >= 0; j--) {
+		out_buf[i++] = (DD >> (8*j)) & 0xFF;
+	}
+	// 16-bit address
+	out_buf[i++] = 0xFF;
+	out_buf[i++] = 0xFE;
+	// Broadcast range
+	out_buf[i++] = 0x00;
+	// Options
+	out_buf[i++] = 0x00;
+
+	memcpy(&out_buf[i], packet_data, data_len);
+	i += data_len;
+
+	// Proper length assignment:
+	uint16_t length = i-3;
+	out_buf[1] = (length>>8) & 0xFF;
+	out_buf[2] = length & 0xFF;
+
+	// Checksum
+	uint8_t sum = 0;
+	// j = 3 to exclude start delimiter and length bytes
+	for (uint8_t j = 3; j < i; j++) {
+		sum += out_buf[j];
+	}
+	out_buf[i++] = 0xFF - sum;
 }

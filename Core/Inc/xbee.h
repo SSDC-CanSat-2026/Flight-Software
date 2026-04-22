@@ -26,7 +26,8 @@
  */
 
 #define XBEE_START_DELIM    0x7E
-#define XBEE_FRAME_TX_REQ   0x90
+#define XBEE_FRAME_TX_REQ   0x10
+#define XBEE_FRAME_RX       0x90
 #define XBEE_MIN_PACKET_LEN 18   /* header (17) + checksum (1) */
 #define XBEE_HEADER_OVERHEAD 3   /* start + 2 length bytes, not counted in length field */
 
@@ -54,5 +55,7 @@ typedef enum {
 } xbee_status_t;
 
 xbee_status_t xbee_decode_tx_request(const uint8_t *packet, size_t packet_len, char *out_buf, size_t out_buf_len, size_t *out_data_len);
+
+xbee_status_t xbee_send_api_packet(const char* packet_data, uint16_t packet_len, char* out_buf, uint16_t out_buf_len, uint16_t* out_data_len);
 
 #endif /* INC_XBEE_H_ */

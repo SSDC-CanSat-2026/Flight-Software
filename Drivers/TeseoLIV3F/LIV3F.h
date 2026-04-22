@@ -47,6 +47,7 @@
 #include <math.h>
 
 #define MAX_GGA_FIELDS 20
+#define MAX_RMC_FIELDS 15
 
 // We may or may not need another struct for GNC purposes.
 
@@ -61,13 +62,41 @@ typedef struct
     float longitude;    // decimal degrees
     float altitude;     // meters
 }GGA_Data_t;
-extern GGA_Data_t gps_data;
+
+typedef struct
+{
+    // Information pulled from LIV3F software manual section 11.4.5 "$--RMC"
+    uint32_t time_ms; // milliseconds since midnight
+    char gps_time[9];
+    char status;
+    // Direction for Lat and Long is assumed North and West as we
+    //  never leave the US.
+    float latitude;  
+    float longitude;
+    float speed; // Speed in knots
+    float track_good;
+    char date [6]; // ddmmyy
+    float mag_var;
+    char mag_var_dir;
+    char mode;
+    char nav_status;
+
+
+    uint8_t year;
+    uint8_t month;
+    uint8_t day;
+}RMC_Data_t;
+
+
+//extern GGA_Data_t gps_data;
+//extern RMC_Data_t rmc_data;
 
 void teseo_INIT(UART_HandleTypeDef* huart);
 void cold_start(UART_HandleTypeDef* huart);
 
-int parse_gga(char *sentence, GGA_Data_t *out);
-void send_getrtc(UART_HandleTypeDef* huart);
+int parse_gps_buffer(char *sentence, GGA_Data_t* gga_out, RMC_Data_t* rmc_out);
+int parse_gga(char *sentence, GGA_Data_t* out);
+int parse_rmc(char *sentence, RMC_Data_t* out);
 
 // Just copy the below functions from the LC76(G) driver
 // Specifically from the modified 2025 FSW code.
