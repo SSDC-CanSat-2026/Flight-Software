@@ -14,15 +14,13 @@ extern "C"
 
 typedef struct ICM42688P_AccelData
 {
-    int16_t accel_z;
+    float accel_x;
+    float accel_y;
+    float accel_z;
 
-    int16_t accel_p;
-    int16_t accel_y;
-    int16_t accel_r;
-
-    int16_t gyro_p;
-    int16_t gyro_y;
-    int16_t gyro_r;
+    float gyro_p;
+    float gyro_y;
+    float gyro_r;
 } ICM42688P_AccelData;
 
 int16_t ICM42688P_read_reg(uint8_t reg);
