@@ -44,13 +44,13 @@ typedef struct
 	float VOLTAGE;
 	float CURRENT;
 
-	int16_t GYRO_R;
-	int16_t GYRO_P;
-	int16_t GYRO_Y;
+	float GYRO_R;
+	float GYRO_P;
+	float GYRO_Y;
 
-	int16_t ACCEL_R;
-	int16_t ACCEL_P;
-	int16_t ACCEL_Y;
+	float ACCEL_X;
+	float ACCEL_Y;
+	float ACCEL_Z;
 
 	char GPS_TIME[9];
 	float GPS_ALTITUDE;
@@ -65,9 +65,9 @@ typedef struct
 
 typedef struct
 {
+	int successfullyMounted;
 	FATFS FatFs;
 	FIL Fil;
-	int successfullyMounted;
 } Micro_SD_Data;
 
 extern Mission_Data 	global_mission_data;

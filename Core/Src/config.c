@@ -6,6 +6,7 @@
  */
 
 #include "../Inc/config.h"
+#include "../Inc/microSD.h"
 
 SystemConfig_t global_config = {
 	.MISSION_TIME 			 = "00:00:00",

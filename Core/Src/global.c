@@ -43,9 +43,9 @@ void init_mission_data(void)
 	global_mission_data.GYRO_P = 0;
 	global_mission_data.GYRO_Y = 0;
 
-	global_mission_data.ACCEL_R = 0;
-	global_mission_data.ACCEL_P = 0;
+	global_mission_data.ACCEL_X = 0;
 	global_mission_data.ACCEL_Y = 0;
+	global_mission_data.ACCEL_Z = 0;
 
 	strcpy(global_mission_data.GPS_TIME, "XX:XX:XX");
 	global_mission_data.GPS_ALTITUDE = 0.0;

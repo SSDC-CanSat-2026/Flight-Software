@@ -12,6 +12,6 @@
 
 void init_SD(void);
 void read_SD(char* buf, char filename[]);
-uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[]);
+uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uint8_t FLAGS);
 
 #endif /* INC_MICROSD_H_ */
