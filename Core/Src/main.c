@@ -237,6 +237,7 @@ int main(void)
   HAL_GPIO_WritePin(BMP_nCS_GPIO_Port, BMP_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(SD_nCS_GPIO_Port, SD_nCS_Pin, GPIO_PIN_SET);
 
+
   // Hold GPS in reset (LOW)
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
   HAL_Delay(100);
@@ -269,6 +270,10 @@ int main(void)
 
   teseo_INIT(&huart5);
 
+  // Initalize the tempearture and pressure sensor (MS5607)
+  MS5607_Init(&hspi2, BMP_nCS_GPIO_Port, BMP_nCS_Pin);
+
+  ICM42688P_init(&hspi2, IMU_nCS_GPIO_Port, IMU_nCS_Pin);
 
   // Enable DMA call backs
   // UART 5
@@ -314,19 +319,19 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of readSensors */
-  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 512);
+  osThreadDef(readSensors, StartReadSensors, osPriorityNormal, 0, 600);
   readSensorsHandle = osThreadCreate(osThread(readSensors), NULL);
 
   /* definition and creation of readCommands */
-  osThreadDef(readCommands, StartReadCommands, osPriorityNormal, 0, 512);
+  osThreadDef(readCommands, StartReadCommands, osPriorityNormal, 0, 600);
   readCommandsHandle = osThreadCreate(osThread(readCommands), NULL);
 
   /* definition and creation of sendTelemetry */
-  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 512);
+  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 600);
   sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
 
   /* definition and creation of guideNavCtrl */
-  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 512);
+  osThreadDef(guideNavCtrl, StartGNC, osPriorityNormal, 0, 600);
   guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
 
   /* definition and creation of Init */
@@ -1278,6 +1283,9 @@ void StartReadSensors(void const * argument)
   MX_USB_Device_Init();
   /* USER CODE BEGIN 5 */
   osStatus stat = osErrorOS;
+
+  char testing_data[200];
+
   /* Infinite loop */
   for (;;)
   {
@@ -1298,28 +1306,46 @@ void StartReadSensors(void const * argument)
      * is dealt with in readCommands.
      */
 
-//    MS5607Readings MS5607_Data = MS5607ReadValues();
-//    if (global_mission_data.MODE == 'F')
-//    { // In Flight Mode
-//      global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
-//    }
-//    else
-//    { // In Simulation Mode and need to read from the CSV instead.
-//      // TODO
-//    }
-//    global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
+    MS5607Readings MS5607_Data = MS5607ReadValues();
+    if (global_mission_data.MODE == 'F')
+    { // In Flight Mode
+      global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
+    }
+    else
+    { // In Simulation Mode and need to read from the CSV instead.
+      // TODO
+    }
+    global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
 //    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
 //    determineState(global_mission_data.ALTITUDE);
 
-//    ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
-//    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
-//    global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
-//    global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+		if(calibrating)
+		{
+			cal_sum += global_mission_data.PRESSURE;
+			cal_count++;
 
-//    global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
-//    global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
-//    global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+			if(cal_count >= 10)
+			{
+				float pressure_avg = cal_sum / cal_count;
+				global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
+
+				calibrating = 0;
+				is_calibrated = 1;
+			}
+		}
+
+   ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+   global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
+   global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
+   global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+
+   global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
+   global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+   global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
+
+   uint16_t voltage;
+   BQ28Z610_ReadVoltage(&hi2c3, &voltage);
 
 //    LC76G_gps_data* gps_data = LC76G_read_data(&huart5);
 //    global_mission_data.GPS_LATITUDE = gps_data->lat;
@@ -1358,7 +1384,18 @@ void StartReadSensors(void const * argument)
      */
 
     // Relinquish access to the global_mission_data struct
+
+//    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
+    snprintf(testing_data, sizeof(testing_data), "TESTING,%lf,%lf,%lf,%lf,%lf,%lf", global_mission_data.ACCEL_X, global_mission_data.ACCEL_Y,
+    									global_mission_data.ACCEL_Z, global_mission_data.GYRO_R, global_mission_data.GYRO_P, global_mission_data.GYRO_Y);
+
+    size_t testing_length = strlen(testing_data);
+
+    FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
+
     osSemaphoreRelease(globalDataHandle);
+
+//    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -1469,7 +1506,9 @@ void StartReadCommands(void const * argument)
       char c_echo[] = "CAL";
       char new_state[]= "LAUNCH_PAD";
 
-      calibrateAltitudeHistory();
+      calibrating = 1;
+      cal_sum = 0;
+      cal_count = 0;
 
       strcpy(global_mission_data.STATE, new_state);
       strcpy(global_mission_data.CMD_ECHO, c_echo);
@@ -1510,8 +1549,6 @@ void StartSendTelemetry(void const * argument)
     // manually defines a critical region to ensure half-packets are never transmitted
 //    taskENTER_CRITICAL();
 
-	  HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
-
     // create an empty buffer for the telemetry packet string
     char telemetry_string[200];
 
@@ -1521,6 +1558,8 @@ void StartSendTelemetry(void const * argument)
     if (osSemaphoreWait(globalDataHandle, 100) != osOK) {
     	continue; // Until we can acquire a lock on the data, we do not want to read from it
     }
+
+    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
     // fill the buffer with the first half of the packet
     str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
@@ -1536,9 +1575,9 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
                       global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
-                      global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)
-                      global_mission_data.ACCEL_P,                 // accelerometer pitch (degrees/s^2)
-                      global_mission_data.ACCEL_Y,                 // accelerometer yaw (degrees/s^2)
+                      global_mission_data.ACCEL_X,                 // accelerometer roll (degrees/s^2)
+                      global_mission_data.ACCEL_Y,                 // accelerometer pitch (degrees/s^2)
+                      global_mission_data.ACCEL_Z,                 // accelerometer yaw (degrees/s^2)
                       global_mission_data.GPS_TIME,                // GPS time
                       global_mission_data.GPS_ALTITUDE,            // GPS (absolute) altitude (m)
                       global_mission_data.GPS_LATITUDE,            // GPS latitude
@@ -1552,14 +1591,13 @@ void StartSendTelemetry(void const * argument)
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
 
-    write_SD(telemetry_string, str_len, "CanSat_Data_2026.csv");
+    // write_SD(telemetry_string, str_len, "CanSat_Data_2026.csv");
 
     osSemaphoreRelease(globalDataHandle);
-//    xSemaphoreGive(globalDataHandle);
     // exit the critical region once both packets have been sent
 //    taskEXIT_CRITICAL();
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-    HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+
 
     osDelay(1000);
   }
@@ -1588,6 +1626,15 @@ void StartGNC(void const * argument)
 		  GPS_READY = 0;
 	  }
     osDelay(1);
+
+//    if (global_micro_sd_data.successfullyMounted) {
+//    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
+//    }
+//    else {
+//    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_RESET);
+//    }
+
+    HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
   }
   /* USER CODE END StartGNC */
 }

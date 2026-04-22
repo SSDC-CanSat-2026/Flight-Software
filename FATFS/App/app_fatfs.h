@@ -34,6 +34,10 @@
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
+extern FIL fil_telemetry;
+extern FIL fil_debug;
+extern FIL fil_config;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -60,7 +64,11 @@ int32_t MX_FATFS_Process(void);
 #define APP_SD_UNPLUGGED           -2
 /* USER CODE END Private defines */
 
+static uint32_t guard_before[4] = {0xDEADBEEF, 0xDEADBEEF,
+                                    0xDEADBEEF, 0xDEADBEEF};
 extern FATFS USERFatFs;    /* File system object for USER logical drive */
+static uint32_t guard_after[4] = {0xDEADBEEF, 0xDEADBEEF,
+                                    0xDEADBEEF, 0xDEADBEEF};
 extern FIL USERFile;       /* File  object for USER */
 extern char USERPath[4];   /* USER logical drive path */
 
