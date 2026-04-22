@@ -1371,8 +1371,7 @@ void StartReadSensors(void const * argument)
     // Relinquish access to the global_mission_data struct
 
 //    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
-    snprintf(testing_data, sizeof(testing_data), "TESTING,%lf,%lf,%lf,%lf,%lf,%lf", global_mission_data.ACCEL_X, global_mission_data.ACCEL_Y,
-    									global_mission_data.ACCEL_Z, global_mission_data.GYRO_R, global_mission_data.GYRO_P, global_mission_data.GYRO_Y);
+    snprintf(testing_data, sizeof(testing_data), "TESTING,%f,%f", global_mission_data.TEMPERATURE, global_mission_data.PRESSURE);
 
     size_t testing_length = strlen(testing_data);
 
