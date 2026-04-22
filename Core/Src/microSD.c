@@ -41,7 +41,7 @@ void init_SD(void){
 
 	global_micro_sd_data.successfullyMounted = 1;
 	char header_string[] = "TEAM_ID,MISSION_TIME,PACKET_COUNT,MODE,STATE,ALTITUDE,TEMPERATURE,PRESSURE,VOLTAGE,CURRENT,GYRO_R,GYRO_P,GYRO_Y,ACCEL_R,ACCEL_P,ACCEL_Y,GPS_TIME,GPS_ALTITUDE,GPS_LATITUDE,GPS_LONGITUDE,GPS_SATS,CMD_ECHO";
-	write_SD(header_string, strlen(header_string), "CanSat_Data_2026.csv", (FA_WRITE | FA_CREATE_ALWAYS));
+	// write_SD(header_string, strlen(header_string), "CanSat_Data_2026.csv", (FA_WRITE | FA_CREATE_ALWAYS));
 	check_fatfs_guards();
 }
 
@@ -95,9 +95,12 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
     FIL* fil = get_fil_for_file(filename);
     if (fil == NULL) return 7;  // unknown filename
 
-    char filepath[32];
+    memset(fil, 0, sizeof(FIL));  // ← add this line
+
+    char filepath[32] = {0};
     snprintf(filepath, sizeof(filepath), "%s%s", USERPath, filename);
 
+    check_fatfs_guards();
     result = f_open(fil, filepath, FA_WRITE | FA_OPEN_ALWAYS);
 //    result = f_open(fil, filepath, FLAGS);
     if (result != FR_OK) return 1;
@@ -106,10 +109,28 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
     result = f_lseek(fil, f_size(fil));
     if (result != FR_OK) { ret = 2; goto cleanup; }
 
+    // Place this just before your f_write call
+    volatile void* dbg_fil_addr     = (void*)fil;  // or whichever FIL you're using
+    volatile void* dbg_fatfs_addr   = (void*)&USERFatFs;
+    volatile void* dbg_guard_before = (void*)&guard_before[0];
+    volatile void* dbg_guard_after  = (void*)&guard_after[0];
+
+    // Optionally compute the distances so you can read them directly in the watch window
+    volatile int32_t dbg_dist_fil_to_guard = (int32_t)((uint8_t*)&fil_telemetry - (uint8_t*)&guard_before[0]);
+    volatile int32_t dbg_dist_fatfs_to_guard = (int32_t)((uint8_t*)&USERFatFs - (uint8_t*)&guard_before[0]);
+
     result = f_write(fil, telemetry_string, str_len, &bytesWritten);
+
+    check_fatfs_guards();
+
     if (result != FR_OK || bytesWritten != str_len) { ret = 3; goto cleanup; }
 
-    f_write(fil, "\n", 1, &bytesWritten);
+    check_fatfs_guards();
+
+    result = f_write(fil, "\n", 1, &bytesWritten);
+    if (result != FR_OK || bytesWritten != 1) { ret = 3; goto cleanup; }
+
+    check_fatfs_guards();
 
     result = f_sync(fil);
     if (result != FR_OK) { ret = 4; goto cleanup; }
@@ -119,7 +140,9 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
 cleanup:
     if (fileIsOpen)
     {
+    	check_fatfs_guards();
         result = f_close(fil);
+        check_fatfs_guards();
         if (result != FR_OK) ret = 5;
     }
     return ret;
