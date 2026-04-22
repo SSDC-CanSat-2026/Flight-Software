@@ -43,6 +43,13 @@ void cold_start(UART_HandleTypeDef* huart) {
 //  that will determine which parser needs to be called first.
 // Return 1 for GGA and return 2 for RMC
 int parse_gps_buffer(char *sentence, GGA_Data_t* gga_out, RMC_Data_t* rmc_out) {
+	for (uint8_t i = 0; i < 50; i++) {
+		if (sentence[i] == '$') {
+			sentence += i;
+			break;
+		}
+	}
+
     if (strncmp(sentence, "$GPGGA", 6) == 0) {
         return parse_gga(sentence, gga_out);
     } else if (strncmp(sentence, "$GPRMC", 6) == 0 || strncmp(sentence, "$GNRMC", 6) == 0) {
