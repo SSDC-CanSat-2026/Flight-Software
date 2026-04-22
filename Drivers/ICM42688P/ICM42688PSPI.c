@@ -1,5 +1,5 @@
 #include "ICM42688PSPI.h"
-#include "stm32g4xx_hal.h"
+
 #include <stdint.h>
 
 static SPI_HandleTypeDef *hspi;
@@ -40,7 +40,7 @@ int16_t ICM42688P_read_reg(uint8_t reg)
     uint8_t tx[3] = { reg | 0x80, 0x00, 0x00 }; // 0x80 = read bit
     int8_t rx[3] = {0};
     ICM42688P_disable_chip_select();
-    HAL_SPI_TransmitReceive(hspi, &tx, &rx, 3, HAL_MAX_DELAY);
+    HAL_SPI_TransmitReceive(hspi, (char*)&tx, (char*)&rx, 3, HAL_MAX_DELAY);
     ICM42688P_enable_chip_select();
 
     int16_t shifted = rx[1] << 8;
@@ -49,7 +49,7 @@ int16_t ICM42688P_read_reg(uint8_t reg)
     return value;
 }
 
-uint8_t ICM42688P_init(SPI_TypeDef *spi_handle, GPIO_TypeDef *chip_select_port, uint16_t chip_select_gpio_pin)
+uint8_t ICM42688P_init(SPI_HandleTypeDef *spi_handle, GPIO_TypeDef *chip_select_port, uint16_t chip_select_gpio_pin)
 {
     hspi = spi_handle;
     ChipSelect_GPIO_Port = chip_select_port;
