@@ -185,17 +185,17 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
 void HAL_UARTEx_ErrorCallback(UART_HandleTypeDef *huart) {
 	while(1) {
 		// 1 quick 2 slow to show a UART error
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+		// HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
 		HAL_Delay(100);
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+		// HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
 		HAL_Delay(100);
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+		// HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
 		HAL_Delay(200);
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+		// HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
 		HAL_Delay(200);
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+		// HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
 		HAL_Delay(200);
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+		// HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
 		HAL_Delay(200);
 	}
 }
@@ -1381,7 +1381,7 @@ void StartReadSensors(void const * argument)
        //result is 1 on success
        if (result == 1)
        {
-           HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+//           HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
            global_mission_data.GPS_LATITUDE = gga_data.latitude;
            global_mission_data.GPS_LONGITUDE = gga_data.longitude;
            global_mission_data.GPS_ALTITUDE = gga_data.altitude;
@@ -1424,11 +1424,11 @@ void StartReadSensors(void const * argument)
 
     size_t testing_length = strlen(testing_data);
 
-    FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
+//    FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
 
     osSemaphoreRelease(globalDataHandle);
 
-//    osDelay(100);
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -1464,7 +1464,7 @@ void StartReadCommands(void const * argument)
             continue;
         }
 
-        xbee_status_t status = xbee_decode_tx_request(&xbee_receive_buffer[0], COMMAND_SIZE, &rx_string[0], 20, NULL);
+        xbee_status_t status = xbee_decode_tx_request(&xbee_receive_buffer[0], COMMAND_SIZE, &rx_string[0], sizeof(rx_string), NULL);
         if (status != XBEE_OK) {
             COMMAND_READY = 0;
             continue;
@@ -1476,7 +1476,7 @@ void StartReadCommands(void const * argument)
             osThreadYield();
             continue; // Semaphore is either unavailable or inputs are wrong
         }
-        HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+        // HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
 
         if (strncmp(rx_string, "CMD,1075,CX,ON", 14) == 0)
         {
@@ -1513,6 +1513,9 @@ void StartReadCommands(void const * argument)
             // set command echo
             char c_echo[] = "SIMENABLE";
             strcpy(global_mission_data.CMD_ECHO, c_echo);
+            simulation_pre = 1;
+            HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_RESET);
         }
         // SIM ACTIVATE command -> turn simulation mode on
         else if (strncmp(rx_string, "CMD,1075,SIM,ACTIVATE", 21) == 0)
@@ -1525,7 +1528,10 @@ void StartReadCommands(void const * argument)
                 // set command echo
                 char c_echo[] = "SIMACT";
                 strcpy(global_mission_data.CMD_ECHO, c_echo);
+                memcpy(&global_mission_data.MODE, "S", 1);
             }
+            HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_RESET);
+            HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
         }
         // SIM DISABLE command -> turn simulation mode off
         else if (strncmp(rx_string, "CMD,1075,SIM,DISABLE", 20) == 0)
@@ -1533,6 +1539,10 @@ void StartReadCommands(void const * argument)
             // set command echo
             char c_echo[] = "SIMDIS";
             strcpy(global_mission_data.CMD_ECHO, c_echo);
+            simulation_pre = 0;
+            memcpy(&global_mission_data.MODE, "F", 1);
+            HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
         }
         // SIMP command -> add simulated pressure data
         else if (strncmp(rx_string, "CMD,1075,SIMP,", 14) == 0)
@@ -1581,6 +1591,8 @@ void StartReadCommands(void const * argument)
 
         // clear command buffer
         memset(rx_string, 0, sizeof(rx_string)); // Can someone double check if this is supposed to clear the command buffer?
+        memset(xbee_receive_buffer, 0, sizeof(xbee_receive_buffer));
+        osDelay(100);
     }
   /* USER CODE END StartReadCommands */
 }
@@ -1617,10 +1629,10 @@ void StartSendTelemetry(void const * argument)
     	continue; // Until we can acquire a lock on the data, we do not want to read from it
     }
 
-    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+    //HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
     // fill the buffer with the first half of the packet
-    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
+    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%s,%0.1f,%0.1f,%0.1f,%d,%s",
                       global_mission_data.TEAM_ID,      // team id (1075)
                       global_mission_data.MISSION_TIME, // mission time
                       global_mission_data.PACKET_COUNT, // packet count
@@ -1630,7 +1642,7 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.TEMPERATURE,  // temperature (C)
                       global_mission_data.PRESSURE,     // pressure (kPa)
                       global_mission_data.VOLTAGE,      // battery voltage (V)
-					  0,
+					  0.0f,								// battery current (A)
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
                       global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
@@ -1666,6 +1678,7 @@ void StartSendTelemetry(void const * argument)
     // exit the critical region once both packets have been sent
 //    taskEXIT_CRITICAL();
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
+    // HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
 
     osDelay(1000);
@@ -1689,6 +1702,11 @@ void StartGNC(void const * argument)
   {
 
 //	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+	if (simulation_pre) {
+		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+	} else {
+		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+	}
     osDelay(250);
 	  if (GPS_READY) {
 
@@ -1703,7 +1721,7 @@ void StartGNC(void const * argument)
 //    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_RESET);
 //    }
 
-    HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+    // HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
   }
   /* USER CODE END StartGNC */
 }
@@ -1723,14 +1741,14 @@ void StartInit(void const * argument)
 	if (global_micro_sd_data.successfullyMounted) {
 		uint32_t result = load_config_from_sd();
 		if (result != APP_OK) {
-			HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+			// HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
 			// Set default config
 			set_default_config();
 			save_config_to_sd();
 		}
 	}
 	else {
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+		// HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
 		set_default_config();
 	}
 
@@ -1747,7 +1765,7 @@ void StartInit(void const * argument)
 	//  during a thread's execution.
 	UBaseType_t stackHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
 
-	HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
+	// HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
 
 
 
