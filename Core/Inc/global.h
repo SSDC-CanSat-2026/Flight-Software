@@ -10,6 +10,8 @@
 
 #include "stm32g4xx_hal.h"
 #include "string.h"
+#include "ff.h"
+#include "app_fatfs.h"
 
 #define STATE_TEXT_LEN 14 // 13 max, plus 1 for null char
 #define CMD_ECHO_LEN 10
@@ -47,13 +49,13 @@ typedef struct
 	float VOLTAGE;
 	float CURRENT;
 
-	int16_t GYRO_R;
-	int16_t GYRO_P;
-	int16_t GYRO_Y;
+	float GYRO_R;
+	float GYRO_P;
+	float GYRO_Y;
 
-	int16_t ACCEL_R;
-	int16_t ACCEL_P;
-	int16_t ACCEL_Y;
+	float ACCEL_X;
+	float ACCEL_Y;
+	float ACCEL_Z;
 
 	char GPS_TIME[9];
 	float GPS_ALTITUDE;
@@ -66,8 +68,16 @@ typedef struct
 	float ALTITUDE_OFFSET;
 } Mission_Data;
 
-extern Mission_Data global_mission_data;
+typedef struct
+{
+	int successfullyMounted;
+	FATFS FatFs;
+	FIL Fil;
+} Micro_SD_Data;
+
+extern Mission_Data 	global_mission_data;
 extern Flags global_flags;
+extern Micro_SD_Data 	global_micro_sd_data;
 
 void init_mission_data(void);
 
