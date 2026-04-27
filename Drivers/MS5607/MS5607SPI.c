@@ -332,7 +332,7 @@ void MS5607SetPressureOSR(MS5607OSRFactors pOSR)
 /*
   AltitudeCalculations.c START HERE
 */
-float const lower_altitude_threshold = 10.0;
+float const lower_altitude_threshold = 25.0;
 
 // Index is by seconds ago the value was calculated
 float altitude_history[] = {0, 0, 0};
@@ -388,7 +388,8 @@ void determineState(){
 
 	// LAUNCHPAD STATE
 	if (strcmp(global_mission_data.STATE, "LAUNCH_PAD") == 0){
-		if (global_mission_data.ACCEL_Y > 0.1 || global_mission_data.ALTITUDE > lower_altitude_threshold) {
+		// Replace with 2 if the units are in g. Currently in m/s^2
+		if (global_mission_data.ACCEL_Z > 18 || global_mission_data.ALTITUDE > lower_altitude_threshold) {
 			char _state[] = "ASCENT";
 			memcpy(global_mission_data.STATE, _state, sizeof(_state));
 		}
@@ -399,7 +400,8 @@ void determineState(){
 			max_altitude = global_mission_data.ALTITUDE;
 		}
 
-		if(fabs(global_mission_data.ACCEL_Y) <= 0.01 || fmax(altitude_history[0], altitude_history[1]) < max_altitude){
+		// Replace with 1 if the units are in g. Current in m/s^2
+		if(fabs(global_mission_data.ACCEL_X) + fabs(global_mission_data.ACCEL_Y) <= 9.8 || fmax(altitude_history[0], altitude_history[1]) < max_altitude){
 			global_flags.mec_wire_enable = 1;
 
 			char _state[] = "APOGEE";
