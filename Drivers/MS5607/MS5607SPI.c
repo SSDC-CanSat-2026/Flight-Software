@@ -389,7 +389,7 @@ void determineState(){
 	// LAUNCHPAD STATE
 	if (strcmp(global_mission_data.STATE, "LAUNCH_PAD") == 0){
 		// Replace with 2 if the units are in g. Currently in m/s^2
-		if (global_mission_data.ACCEL_Z > 18 || global_mission_data.ALTITUDE > lower_altitude_threshold) {
+		if ((global_mission_data.ACCEL_Z > 18 && global_mission_data.ALTITUDE > lower_altitude_threshold) {
 			char _state[] = "ASCENT";
 			memcpy(global_mission_data.STATE, _state, sizeof(_state));
 		}
@@ -431,7 +431,6 @@ void determineState(){
 	}
 	// PAYLOAD_RELEASE STATE
 	else if (strcmp(global_mission_data.STATE, "PAYLOAD_RELEASE") == 0){
-		// Yaw is Z (for now) TODO: DOUBLE CHECK THIS
 		if (global_mission_data.ALTITUDE < 1.0){
 			char _state[] = "LANDED";
 			memcpy(global_mission_data.STATE, _state, sizeof(_state));
