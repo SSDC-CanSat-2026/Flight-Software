@@ -134,10 +134,10 @@ MS5607StateTypeDef MS5607_Init(SPI_HandleTypeDef *spi_handle, GPIO_TypeDef *chip
 void MS5607PromRead(struct promData *prom)
 {
   uint8_t address;
-  uint16_t *structPointer;
+  uint8_t *structPointer;
 
   /* As the PROM is made of 8 16bit addresses I used a pointer for accessing the data structure */
-  structPointer = (uint16_t *)prom;
+  structPointer = (uint8_t *)prom;
 
   for (address = 0; address < 8; address++)
   {
@@ -145,13 +145,13 @@ void MS5607PromRead(struct promData *prom)
     enableCSB();
     HAL_SPI_Transmit(hspi, &SPITransmitData, 1, 10);
     /* Receive two bytes at once and stores it directly at the structure */
-    HAL_SPI_Receive(hspi, structPointer, 2, 10);
+    HAL_SPI_Receive(hspi, structPointer, 4, 10);
     disableCSB();
     structPointer++;
   }
 
   /* Byte swap on 16bit integers*/
-  structPointer = (uint16_t *)prom;
+  structPointer = (uint8_t *)prom;
   for (address = 0; address < 8; address++)
   {
     uint8_t *toSwap = (uint8_t *)structPointer;
@@ -441,3 +441,7 @@ void determineState(){
 void calibrateAltitudeHistory(void){
 	memset(altitude_history, 0, 3);
 }
+void calibrateAltitudeHistory(void){
+	memset(altitude_history, 0, 3); // Because you cannot access altitude_history from main.c
+}
+

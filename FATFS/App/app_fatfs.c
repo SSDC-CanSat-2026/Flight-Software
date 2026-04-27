@@ -47,8 +47,17 @@ typedef enum {
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-FATFS USERFatFs;    /* File system object for USER logical drive */
-FIL USERFile;       /* File  object for USER */
+
+
+volatile uint32_t guard_before[4] = {0xDEADBEEF, 0xDEADBEEF,
+		             0xDEADBEEF, 0xDEADBEEF};
+FATFS USERFatFs = {0};    /* File system object for USER logical drive */
+volatile uint32_t guard_after[4] = {0xDEADBEEF, 0xDEADBEEF,
+                                    0xDEADBEEF, 0xDEADBEEF};
+FIL USERFile = {0};       /* File  object for USER */
+FIL fil_telemetry = {0};
+FIL fil_debug = {0};
+FIL fil_config = {0};
 char USERPath[4];   /* USER logical drive path */
 /* USER CODE BEGIN PV */
 FS_FileOperationsTypeDef Appli_state = APPLICATION_IDLE;
