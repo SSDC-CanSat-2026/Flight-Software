@@ -19,6 +19,7 @@ volatile uint8_t calibrating = 0;
 volatile uint8_t cal_count = 0;
 volatile float cal_sum = 0;
 Mission_Data 	global_mission_data 	= {0};
+Flags global_flags = {0};
 Micro_SD_Data	global_micro_sd_data;
 
 void init_mission_data(void)
