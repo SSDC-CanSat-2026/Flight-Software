@@ -10,6 +10,7 @@
 
 #include "stm32g4xx_hal.h"
 #include <stdint.h>
+#include <stdio.h>
 
 /*
 typedef struct BQ28Z610_Voltage

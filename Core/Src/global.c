@@ -15,9 +15,9 @@ volatile uint8_t mec_wire_enable 		= 0;
 volatile uint8_t simulation_enable 		= 0;
 volatile uint8_t simulation_pre 		= 0;
 volatile double simulated_pressure 		= 0.0;
-volatile uint8_t calibrating = 0;
-volatile uint8_t cal_count = 0;
-volatile float cal_sum = 0;
+volatile uint8_t calibrating 			= 0;
+volatile uint8_t cal_count 				= 0;
+volatile float cal_sum 					= 0;
 Mission_Data 	global_mission_data 	= {0};
 Micro_SD_Data	global_micro_sd_data;
 

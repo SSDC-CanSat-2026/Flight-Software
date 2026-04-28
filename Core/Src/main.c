@@ -33,6 +33,8 @@
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
 #include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
 #include "../../Drivers/TeseoLIV3F/LIV3F.h"         // GPS Module
+#include "../../Drivers/BQ28Z610/BQ28Z610I2C.h"
+#include "../../Drivers/BMM350/BMM350_port.h"
 #include "../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h"
 /* USER CODE END Includes */
 
@@ -102,6 +104,8 @@ volatile uint8_t COMMAND_READY 	= 0;
 
 GGA_Data_t gga_data;
 RMC_Data_t rmc_data;
+
+struct bmm350_dev bmm350;
 
 /* USER CODE END PV */
 
@@ -1307,6 +1311,7 @@ void StartReadSensors(void const * argument)
   osStatus stat = osErrorOS;
 
   char testing_data[200];
+ uint32_t debug_count = 0;
 
   /* Infinite loop */
   for (;;)
@@ -1366,8 +1371,20 @@ void StartReadSensors(void const * argument)
    global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
    global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
 
-   uint16_t voltage;
-   BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+//   BMM350_INTF_RET_TYPE BMM350_read_mag_data(struct bmm350_dev* bmm350, struct bmm350_mag_temp_data* mag_data);
+   struct bmm350_mag_temp_data mag_data;
+   BMM350_read_mag_data(&bmm350, &mag_data);
+
+   uint16_t voltage = 0;
+   HAL_StatusTypeDef status = BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+   if (status == HAL_OK) {
+	   HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
+   } else if (status == HAL_BUSY) {
+	   HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+   } else {
+	   HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
+	   HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+   }
 
 
    //New code
@@ -1381,7 +1398,7 @@ void StartReadSensors(void const * argument)
        //result is 1 on success
        if (result == 1)
        {
-           HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+//           HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
            global_mission_data.GPS_LATITUDE = gga_data.latitude;
            global_mission_data.GPS_LONGITUDE = gga_data.longitude;
            global_mission_data.GPS_ALTITUDE = gga_data.altitude;
@@ -1419,7 +1436,7 @@ void StartReadSensors(void const * argument)
     // Relinquish access to the global_mission_data struct
 
 //    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
-    snprintf(testing_data, sizeof(testing_data), "TESTING,%f,%f", global_mission_data.TEMPERATURE, global_mission_data.PRESSURE);
+    snprintf(testing_data, sizeof(testing_data), "TESTING,VOLTAGE,%d,%d", voltage, debug_count);
 
     size_t testing_length = strlen(testing_data);
 
@@ -1427,7 +1444,9 @@ void StartReadSensors(void const * argument)
 
     osSemaphoreRelease(globalDataHandle);
 
-//    osDelay(100);
+    debug_count++;
+
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -1475,7 +1494,7 @@ void StartReadCommands(void const * argument)
             osThreadYield();
             continue; // Semaphore is either unavailable or inputs are wrong
         }
-        HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+//        HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
 
         if (strncmp(rx_string, "CMD,1075,CX,ON", 14) == 0)
         {
@@ -1652,9 +1671,10 @@ void StartSendTelemetry(void const * argument)
     	continue;
 
     }
-
 	HAL_UART_Transmit(&huart3, frame, data_len, HAL_MAX_DELAY);
 //    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
+
+	uint32_t bytes_written = write_SD(&telemetry_string[0], str_len, "CanSat_2025_FlighSoftWare.csv", 0);
 
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
@@ -1687,13 +1707,12 @@ void StartGNC(void const * argument)
   for (;;)
   {
 
-//	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
     osDelay(250);
 	  if (GPS_READY) {
 
 		  GPS_READY = 0;
 	  }
-    osDelay(1);
+//    osDelay(1);
 
 //    if (global_micro_sd_data.successfullyMounted) {
 //    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
@@ -1722,14 +1741,14 @@ void StartInit(void const * argument)
 	if (global_micro_sd_data.successfullyMounted) {
 		uint32_t result = load_config_from_sd();
 		if (result != APP_OK) {
-			HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+//			HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
 			// Set default config
 			set_default_config();
 			save_config_to_sd();
 		}
 	}
 	else {
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+//		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
 		set_default_config();
 	}
 
@@ -1746,9 +1765,13 @@ void StartInit(void const * argument)
 	//  during a thread's execution.
 	UBaseType_t stackHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
 
-	HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
+//	HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
 
 
+	// The BMM350 uses osDelay for one of the functions of the factory driver.
+	// This is not something that can be changed to be HAL_Delay since the
+	//  driver uses it during normal ops, so the init is here now.
+	BMM350_init(&bmm350, &hi2c3);
 
 	// Init task has nothing left to do — delete itself
 //	osThreadTerminate(osThreadGetId());

@@ -33,13 +33,16 @@
 HAL_StatusTypeDef BQ28Z610_ReadVoltage(I2C_HandleTypeDef *hi2c, uint16_t *voltage)
 {
 
-//    if (HAL_I2C_IsDeviceReady(hi2c, 0xAA, 1, 10) == HAL_OK)
-//    {
-//    	return HAL_OK;
-//    }
-//    else {
-//    	return HAL_ERROR;
-//    }
+	for (int i = 0; i < 5; i++)
+	{
+	    HAL_I2C_IsDeviceReady(&hi2c3, 0x55 << 1, 1, 10);
+	    HAL_Delay(10);
+	}
+
+    if (HAL_I2C_IsDeviceReady(hi2c, 0xAA, 1, 10) != HAL_OK)
+    {
+    	return HAL_BUSY;
+    }
 
 
     uint8_t cmd = CMD_VOLTAGE;

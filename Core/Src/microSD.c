@@ -31,7 +31,7 @@ void init_SD(void){
 		global_micro_sd_data.successfullyMounted = 0;
 		
 
-		HardFault_Handler(); // FIXME : Obviously we don't want to trigger a hard fault here during competition.
+//		HardFault_Handler(); // FIXME : Obviously we don't want to trigger a hard fault here during competition.
 		// TODO: ADD LED DEBUGGING LIGHTS HERE FOR LED
 		return;
 	}
@@ -64,7 +64,7 @@ void read_SD(char* buf, char filename[]) {
 		snprintf(filepath, sizeof(filepath), "%s%s", USERPath, filename);
 
 	    FIL* fil = get_fil_for_file(filename);
-	    if (fil == NULL) return 7;  // unknown filename
+	    if (fil == NULL) return;  // unknown filename
 
 		result = f_open(fil, filepath, FA_READ);
 		if (result != FR_OK) {
@@ -135,7 +135,7 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
     result = f_sync(fil);
     if (result != FR_OK) { ret = 4; goto cleanup; }
 
-    HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
+    // HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
 
 cleanup:
     if (fileIsOpen)
