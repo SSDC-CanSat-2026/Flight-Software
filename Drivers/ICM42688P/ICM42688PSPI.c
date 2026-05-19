@@ -38,14 +38,14 @@ static HAL_StatusTypeDef ICM42688P_write_reg(uint8_t reg, uint8_t data)
 int16_t ICM42688P_read_reg(uint8_t reg)
 {
     uint8_t tx[3] = { reg | 0x80, 0x00, 0x00 }; // 0x80 = read bit
-    int8_t rx[3] = {0};
+    uint8_t rx[3] = {0};
     ICM42688P_disable_chip_select();
     HAL_SPI_TransmitReceive(hspi, (char*)&tx, (char*)&rx, 3, HAL_MAX_DELAY);
     ICM42688P_enable_chip_select();
 
-    int16_t shifted = rx[1] << 8;
-    int16_t lower = rx[2];
-    int16_t value = shifted | lower;
+//    unt16_t shifted = rx[1] << 8;
+//    unt16_t lower = rx[2];
+    int16_t value = (int16_t)((rx[1] << 8) | rx[2]);
     return value;
 }
 
@@ -63,10 +63,21 @@ uint8_t ICM42688P_init(SPI_HandleTypeDef *spi_handle, GPIO_TypeDef *chip_select_
     ICM42688P_write_reg(0x10, 0x0F);  // Gyro and accel config
     */
 
+
+
     ICM42688P_write_reg(0x11, 0x01); // Reset Device
     HAL_Delay(100);
+
+    uint8_t who = ICM42688P_read_reg(0x75);
+
     ICM42688P_write_reg(0x4E, (0b11 << 2) | (0b11 << 0)); // Enable gyro & accelerometer
+    ICM42688P_write_reg(0x50, 0x06); // accel: ±16g, ~1kHz
+    ICM42688P_write_reg(0x4F, 0x06); // gyro: ±2000 dps, ~1kHz
+
+    // In order to enable CLKIN you need to change Register Banks
+    ICM42688P_write_reg(0x76, (0b001));					  // Change to Bank 1
     ICM42688P_write_reg(0x7B, (0b10 << 1));               // Enable CLKIN
+    ICM42688P_write_reg(0x76, (0b000));					  // Change back to Bank 0
 
     return 0;
 }
@@ -104,10 +115,10 @@ ICM42688P_AccelData ICM42688P_read_data()
     // data.accel_y = Get_Accel_Y(data.gyro_y, time);
     // data.accel_r = -Get_Accel_R(data.gyro_r, time);
 
-    gyro_old_p = data.gyro_p;
-    gyro_old_y = data.gyro_y;
-    gyro_old_r = data.gyro_r;
-    old_time = time;
+//    gyro_old_p = data.gyro_p;
+//    gyro_old_y = data.gyro_y;
+//    gyro_old_r = data.gyro_r;
+//    old_time = time;
 
     return data;
 }

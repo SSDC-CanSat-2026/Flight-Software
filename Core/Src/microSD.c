@@ -31,7 +31,7 @@ void init_SD(void){
 		global_micro_sd_data.successfullyMounted = 0;
 		
 
-		HardFault_Handler(); // FIXME : Obviously we don't want to trigger a hard fault here during competition.
+//		HardFault_Handler(); // FIXME : Obviously we don't want to trigger a hard fault here during competition.
 		// TODO: ADD LED DEBUGGING LIGHTS HERE FOR LED
 		return;
 	}
@@ -77,7 +77,7 @@ void read_SD(char* buf, char filename[]) {
 		snprintf(filepath, sizeof(filepath), "%s%s", USERPath, filename);
 
 	    FIL* fil = get_fil_for_file(filename);
-	    if (fil == NULL) return 7;  // unknown filename
+	    if (fil == NULL) return;  // unknown filename
 
 		result = f_open(fil, filepath, FA_READ);
 		if (result != FR_OK) {
