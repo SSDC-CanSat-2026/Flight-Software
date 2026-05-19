@@ -91,7 +91,7 @@ ICM42688P_AccelData ICM42688P_read_data()
 	ICM42688P_AccelData data = {0};
 
     data.accel_x = (float)ICM42688P_read_reg(0x1F) / ACCEL_FS_SEL_0;
-    data.accel_y = (float)ICM42688P_read_reg(0x21) / ACCEL_FS_SEL_0;
+    data.accel_yaw = (float)ICM42688P_read_reg(0x21) / ACCEL_FS_SEL_0;
     data.accel_z = (float)ICM42688P_read_reg(0x23) / ACCEL_FS_SEL_0;
 
     data.gyro_p = (float)ICM42688P_read_reg(0x25) / GYRO_FS_SEL_0;
@@ -100,9 +100,9 @@ ICM42688P_AccelData ICM42688P_read_data()
 
     uint32_t time = 0;
 
-    // data.accel_p = Get_Accel_P(data.gyro_p, time);
-    // data.accel_y = Get_Accel_Y(data.gyro_y, time);
-    // data.accel_r = -Get_Accel_R(data.gyro_r, time);
+    data.accel_p = Get_Accel_P(data.gyro_p, time);
+    data.accel_y = Get_Accel_Y(data.gyro_y, time);
+    data.accel_r = -Get_Accel_R(data.gyro_r, time);
 
     gyro_old_p = data.gyro_p;
     gyro_old_y = data.gyro_y;

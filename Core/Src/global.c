@@ -14,7 +14,7 @@ volatile uint8_t is_calibrated 			= 0;
 volatile uint8_t mec_wire_enable 		= 0;
 volatile uint8_t simulation_enable 		= 0;
 volatile uint8_t simulation_pre 		= 0;
-volatile double simulated_pressure 		= 0.0;
+volatile float simulated_pressure 		= 0.0;
 volatile uint8_t calibrating 			= 0;
 volatile uint8_t cal_count 				= 0;
 volatile float cal_sum 					= 0;
@@ -44,7 +44,7 @@ void init_mission_data(void)
 	global_mission_data.GYRO_Y = 0;
 
 	global_mission_data.ACCEL_X = 0;
-	global_mission_data.ACCEL_Y = 0;
+	global_mission_data.ACCEL_YAW = 0;
 	global_mission_data.ACCEL_Z = 0;
 
 	strcpy(global_mission_data.GPS_TIME, "XX:XX:XX");

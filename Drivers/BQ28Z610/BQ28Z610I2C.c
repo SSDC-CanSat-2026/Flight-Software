@@ -33,9 +33,10 @@
 HAL_StatusTypeDef BQ28Z610_ReadVoltage(I2C_HandleTypeDef *hi2c, uint16_t *voltage)
 {
 
+
 	for (int i = 0; i < 5; i++)
 	{
-	    HAL_I2C_IsDeviceReady(&hi2c3, 0x55 << 1, 1, 10);
+	    HAL_I2C_IsDeviceReady(hi2c, 0x55 << 1, 1, 10);
 	    HAL_Delay(10);
 	}
 
@@ -46,14 +47,16 @@ HAL_StatusTypeDef BQ28Z610_ReadVoltage(I2C_HandleTypeDef *hi2c, uint16_t *voltag
 
 
     uint8_t cmd = CMD_VOLTAGE;
-    uint8_t rx[2];
+    uint8_t rx[2] = {0};
 
     // Write command (SMBus style)
-    if (HAL_I2C_Master_Transmit(hi2c, BQ28Z610_I2C_ADDR, &cmd, 1, HAL_MAX_DELAY) != HAL_OK)
+    HAL_StatusTypeDef status = HAL_I2C_Master_Transmit(hi2c, BQ28Z610_I2C_ADDR, &cmd, 1, HAL_MAX_DELAY);
+    if (status != HAL_OK)
         return HAL_ERROR;
 
     // Read 2 bytes
-    if (HAL_I2C_Master_Receive(hi2c, BQ28Z610_I2C_ADDR, rx, 2, HAL_MAX_DELAY) != HAL_OK)
+    status = HAL_I2C_Master_Receive(hi2c, BQ28Z610_I2C_ADDR, rx, 2, HAL_MAX_DELAY);
+    if (status != HAL_OK)
         return HAL_ERROR;
 
     *voltage = (rx[1] << 8) | rx[0];

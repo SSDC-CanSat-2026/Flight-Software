@@ -24,7 +24,7 @@ extern volatile uint8_t gps_time_enable;
 extern volatile uint8_t is_calibrated;
 extern volatile uint8_t mec_wire_enable;
 extern volatile uint8_t simulation_pre;
-extern volatile double simulated_pressure;
+extern volatile float simulated_pressure;
 extern volatile uint8_t calibrating;
 extern volatile uint8_t cal_count;
 extern volatile float cal_sum;
@@ -51,8 +51,13 @@ typedef struct
 	float GYRO_P;
 	float GYRO_Y;
 
+    float ACCEL_R;
+    float ACCEL_P;
+    float ACCEL_Y;
+
+    // TODO : Before launch day, just remove these as they are not necessary
 	float ACCEL_X;
-	float ACCEL_Y;
+	float ACCEL_YAW;
 	float ACCEL_Z;
 
 	char GPS_TIME[9];

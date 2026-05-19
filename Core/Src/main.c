@@ -261,7 +261,6 @@ int main(void)
   HAL_GPIO_WritePin(BMP_nCS_GPIO_Port, BMP_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(SD_nCS_GPIO_Port, SD_nCS_Pin, GPIO_PIN_SET);
 
-
   // Hold GPS in reset (LOW)
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
   HAL_Delay(100);
@@ -301,6 +300,8 @@ int main(void)
 
   ICM42688P_init(&hspi2, IMU_nCS_GPIO_Port, IMU_nCS_Pin);
 
+
+// I might move these to the StartUp thread, just so that the rest of the inits can run fine. TBD. - Joel
   // Enable DMA call backs
   // UART 5
   // Check if ORE flag is set, which can happen if data is present on UART RX line
@@ -1311,7 +1312,7 @@ void StartReadSensors(void const * argument)
   osStatus stat = osErrorOS;
 
   char testing_data[200];
- uint32_t debug_count = 0;
+  uint32_t debug_count = 0;
 
   /* Infinite loop */
   for (;;)
@@ -1334,33 +1335,33 @@ void StartReadSensors(void const * argument)
      */
 
     MS5607Readings MS5607_Data = MS5607ReadValues();
-    if (global_mission_data.MODE == 'F')
+    // TODO : This should probably just use the flag simulation_enable
+    if (simulation_enable == 1)
     { // In Flight Mode
       global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
     }
     else
     { // In Simulation Mode and need to read from the CSV instead.
       // TODO
+      global_mission_data.PRESSURE = simulated_pressure;
     }
     global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
 //    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
 //    determineState(global_mission_data.ALTITUDE);
 
-		if(calibrating)
-		{
-			cal_sum += global_mission_data.PRESSURE;
-			cal_count++;
+    if(calibrating) {
+        cal_sum += global_mission_data.PRESSURE;
+        cal_count++;
 
-			if(cal_count >= 10)
-			{
-				float pressure_avg = cal_sum / cal_count;
-				global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
+        if(cal_count >= 10) {
+            float pressure_avg = cal_sum / cal_count;
+            global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
 
-				calibrating = 0;
-				is_calibrated = 1;
-			}
-		}
+            calibrating = 0;
+            is_calibrated = 1;
+        }
+    }
 
    ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
@@ -1368,41 +1369,47 @@ void StartReadSensors(void const * argument)
    global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
 
    global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
-   global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+   global_mission_data.ACCEL_YAW = ICM42688P_Data.accel_yaw;
    global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
 
-//   BMM350_INTF_RET_TYPE BMM350_read_mag_data(struct bmm350_dev* bmm350, struct bmm350_mag_temp_data* mag_data);
-   struct bmm350_mag_temp_data mag_data;
-   BMM350_read_mag_data(&bmm350, &mag_data);
+   global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
+   global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
+   global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
 
-   uint16_t voltage = 0;
-   HAL_StatusTypeDef status = BQ28Z610_ReadVoltage(&hi2c3, &voltage);
-   if (status == HAL_OK) {
-	   HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
-   } else if (status == HAL_BUSY) {
-	   HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
-   } else {
-	   HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
-	   HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
-   }
+//   struct bmm350_mag_temp_data mag_data;
+//   BMM350_read_mag_data(&bmm350, &mag_data);
+
+    uint16_t voltage = 0;
+    HAL_StatusTypeDef status = BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+    if (status == HAL_OK) {
+        HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
+    } else if (status == HAL_BUSY) {
+        HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+    } else {
+        HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
+        HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+    }
 
 
-   //New code
-   if (GPS_READY)
-      {
-       // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
-       // into the gps_receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
-       int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data);
-       GPS_READY = 0;
+    /*
+     * Get GPS information from GPS
+     */
+    if (GPS_READY)
+        {
+        // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
+        // into the gps_receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
+        int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data);
+        GPS_READY = 0;
 
-       //result is 1 on success
-       if (result == 1)
-       {
-//           HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
-           global_mission_data.GPS_LATITUDE = gga_data.latitude;
-           global_mission_data.GPS_LONGITUDE = gga_data.longitude;
-           global_mission_data.GPS_ALTITUDE = gga_data.altitude;
-           global_mission_data.GPS_SATS = gga_data.num_satellites;
+        //result is 1 on success
+        if (result == 1)
+        {
+//            HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+            global_mission_data.GPS_LATITUDE = gga_data.latitude;
+            global_mission_data.GPS_LONGITUDE = gga_data.longitude;
+            global_mission_data.GPS_ALTITUDE = gga_data.altitude;
+            global_mission_data.GPS_SATS = gga_data.num_satellites;
+            // TODO : TBD but we *may* want to actually have logic that lets us utilize the RMC data, just a thought - Joel
        }
    }
 
@@ -1422,19 +1429,8 @@ void StartReadSensors(void const * argument)
 //    }
 
 	snprintf(global_mission_data.MISSION_TIME, 9, "XX:XX:XX");
-//    snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
-//             sTime.Hours, sTime.Minutes, sTime.Seconds);
 
-    /*
-     * Get Voltage and Current from Magnetometer
-     */
-
-    /*
-     * Get GPS information from GPS
-     */
-
-    // Relinquish access to the global_mission_data struct
-
+// This is just some debugging statements that will be printed to the SD card (if it doesn't decide to break itself again that is)
 //    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
     snprintf(testing_data, sizeof(testing_data), "TESTING,VOLTAGE,%d,%d", voltage, debug_count);
 
@@ -1442,8 +1438,10 @@ void StartReadSensors(void const * argument)
 
     FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
 
+    // Relinquish access to the global_mission_data struct
     osSemaphoreRelease(globalDataHandle);
-
+    
+    // I added this so we could easily tell when the program restarts in the debug.csv without having to pull it and delete the file every time.
     debug_count++;
 
     osDelay(100);
@@ -1466,7 +1464,6 @@ void StartReadCommands(void const * argument)
 	char rx_string[25];
     for (;;)
     {
-
         if (!COMMAND_READY) {
             osThreadYield();
             continue;
@@ -1477,17 +1474,12 @@ void StartReadCommands(void const * argument)
         // something tells me we could just have a char array to begin with but i would wanna
         // wait until we can test to make changes for sure
 
-        if (xbee_receive_buffer[0] != 0x7E) {
-            COMMAND_READY = 0;
-            continue;
-        }
-
+        // The function will automatically decode the packet (i.e. Start delim, length, options, checksum, etc)
         xbee_status_t status = xbee_decode_tx_request(&xbee_receive_buffer[0], COMMAND_SIZE, &rx_string[0], 20, NULL);
         if (status != XBEE_OK) {
             COMMAND_READY = 0;
             continue;
         }
-
 
         stat = osSemaphoreWait(globalDataHandle, 100);
         if (stat != osOK) {
@@ -1518,8 +1510,9 @@ void StartReadCommands(void const * argument)
             char arg[9];
             char *time_str = rx_string + 12;
             strncpy(arg, time_str, 9);
-
+            
             // removed this code because GPS is screwed
+            // TODO : Add "this code" back because GPS is not screwed now - Joel
 
             // set command echo
             char c_echo[] = "ST";
@@ -1531,6 +1524,7 @@ void StartReadCommands(void const * argument)
             // set command echo
             char c_echo[] = "SIMENABLE";
             strcpy(global_mission_data.CMD_ECHO, c_echo);
+            simulation_pre = 1;
         }
         // SIM ACTIVATE command -> turn simulation mode on
         else if (strncmp(rx_string, "CMD,1075,SIM,ACTIVATE", 21) == 0)
@@ -1543,6 +1537,8 @@ void StartReadCommands(void const * argument)
                 // set command echo
                 char c_echo[] = "SIMACT";
                 strcpy(global_mission_data.CMD_ECHO, c_echo);
+                simulation_pre = 0;
+                simulation_enable = 1;
             }
         }
         // SIM DISABLE command -> turn simulation mode off
@@ -1551,18 +1547,15 @@ void StartReadCommands(void const * argument)
             // set command echo
             char c_echo[] = "SIMDIS";
             strcpy(global_mission_data.CMD_ECHO, c_echo);
+            simulation_pre = 0;
+            simulation_enable = 0;
         }
         // SIMP command -> add simulated pressure data
         else if (strncmp(rx_string, "CMD,1075,SIMP,", 14) == 0)
         {
             // parse inputed pressure data
-            // char *pressure_str = rx_string + 14;
-            // char *str_end;
-            long pressure_pa = atof(rx_string + 14);
-            // if (str_end == pressure_str || *str_end != '\0')
-            // it wasn't a valid number
             // set simulated pressure to parsed value
-            simulated_pressure = pressure_pa;
+            simulated_pressure = atof(rx_string + 14);
 
             // set command echo
             char c_echo[] = "SIMP";
@@ -1578,6 +1571,7 @@ void StartReadCommands(void const * argument)
             calibrating = 1;
             cal_sum = 0;
             cal_count = 0;
+            is_calibrated = 0;
 
             strcpy(global_mission_data.STATE, new_state);
             strcpy(global_mission_data.CMD_ECHO, c_echo);
@@ -1592,6 +1586,7 @@ void StartReadCommands(void const * argument)
         {
         // turn off MEC command (servos for GNC?)
         }
+        // TODO : We will need MEC commands for both control servos too
 
         COMMAND_READY = 0;
 
@@ -1638,7 +1633,7 @@ void StartSendTelemetry(void const * argument)
     HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
     // fill the buffer with the first half of the packet
-    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
+    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.3f,%.1f,%d,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
                       global_mission_data.TEAM_ID,      // team id (1075)
                       global_mission_data.MISSION_TIME, // mission time
                       global_mission_data.PACKET_COUNT, // packet count
@@ -1653,7 +1648,7 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
                       global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
                       global_mission_data.ACCEL_X,                 // accelerometer roll (degrees/s^2)
-                      global_mission_data.ACCEL_Y,                 // accelerometer pitch (degrees/s^2)
+                      global_mission_data.ACCEL_YAW,                 // accelerometer pitch (degrees/s^2)
                       global_mission_data.ACCEL_Z,                 // accelerometer yaw (degrees/s^2)
                       global_mission_data.GPS_TIME,                // GPS time
                       global_mission_data.GPS_ALTITUDE,            // GPS (absolute) altitude (m)
