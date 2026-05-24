@@ -13,16 +13,16 @@ void check_fatfs_guards(void)
 {
     for (uint8_t i = 0; i < 4; i++)
     {
-        if (guard_before[i] != 0xDEADBEEF)
-        {
-            // Something before USERFatFs was overwritten
-            __BKPT(0);
-        }
-        if (guard_after[i] != 0xDEADBEEF)
-        {
-            // Something after USERFatFs was overwritten
-            __BKPT(0);
-        }
+//        if (guard_before[i] != 0xDEADBEEF)
+//        {
+//            // Something before USERFatFs was overwritten
+//            __BKPT(0);
+//        }
+//        if (guard_after[i] != 0xDEADBEEF)
+//        {
+//            // Something after USERFatFs was overwritten
+//            __BKPT(0);
+//        }
     }
 }
 
@@ -48,7 +48,7 @@ void init_SD(void){
 
 static FIL* get_fil_for_file(const char* filename)
 {
-    if (strstr(filename, "CanSat_Data") != NULL) return &fil_telemetry;
+    if (strstr(filename, "FSW") != NULL) return &fil_telemetry;
     if (strstr(filename, "debug")       != NULL) return &fil_debug;
     if (strstr(filename, "config")      != NULL) return &fil_config;
     return NULL;  // unknown file
@@ -96,13 +96,14 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
     FIL* fil = get_fil_for_file(filename);
     if (fil == NULL) return 7;  // unknown filename
 
-    memset(fil, 0, sizeof(FIL));  // ← add this line
+//    memset(fil, 0, sizeof(FIL));  // ← add this line
 
-    char filepath[32] = {0};
-    snprintf(filepath, sizeof(filepath), "%s%s", USERPath, filename);
+    char filepath[64] = {0};
+    snprintf(filepath, sizeof(filepath), "0:/%s", filename);
 
     check_fatfs_guards();
     result = f_open(fil, filepath, FA_WRITE | FA_OPEN_ALWAYS);
+//    result = f_open(fil, "0:/test.txt", FA_WRITE | FA_OPEN_ALWAYS);
 //    result = f_open(fil, filepath, FLAGS);
     if (result != FR_OK) return 1;
     fileIsOpen = 1;
@@ -113,12 +114,12 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
     // Place this just before your f_write call
     volatile void* dbg_fil_addr     = (void*)fil;  // or whichever FIL you're using
     volatile void* dbg_fatfs_addr   = (void*)&USERFatFs;
-    volatile void* dbg_guard_before = (void*)&guard_before[0];
-    volatile void* dbg_guard_after  = (void*)&guard_after[0];
+//    volatile void* dbg_guard_before = (void*)&guard_before[0];
+//    volatile void* dbg_guard_after  = (void*)&guard_after[0];
 
     // Optionally compute the distances so you can read them directly in the watch window
-    volatile int32_t dbg_dist_fil_to_guard = (int32_t)((uint8_t*)&fil_telemetry - (uint8_t*)&guard_before[0]);
-    volatile int32_t dbg_dist_fatfs_to_guard = (int32_t)((uint8_t*)&USERFatFs - (uint8_t*)&guard_before[0]);
+//    volatile int32_t dbg_dist_fil_to_guard = (int32_t)((uint8_t*)&fil_telemetry - (uint8_t*)&guard_before[0]);
+//    volatile int32_t dbg_dist_fatfs_to_guard = (int32_t)((uint8_t*)&USERFatFs - (uint8_t*)&guard_before[0]);
 
     result = f_write(fil, telemetry_string, str_len, &bytesWritten);
 

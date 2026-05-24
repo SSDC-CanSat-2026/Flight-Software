@@ -39,6 +39,7 @@ typedef struct
 typedef struct
 {
 	int16_t TEAM_ID;
+	uint32_t MISSION_TIME_ms;
 	char MISSION_TIME[9]; // "hh:mm:ss"
 	uint32_t PACKET_COUNT;
 

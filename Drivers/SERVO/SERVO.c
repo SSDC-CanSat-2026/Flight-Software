@@ -95,17 +95,21 @@ void SERVO_Sweep(uint16_t au16_SERVO_Instance)
 	SERVO_MoveTo(au16_SERVO_Instance, 0);
 
 	osDelay(250);
-	while(au8_Angle < 180)
-	{
-		SERVO_MoveTo(au16_SERVO_Instance, au8_Angle);
-		au8_Angle += 10;
-		osDelay(50);
-	}
-	osDelay(250);
-	while(au8_Angle > 0)
-	{
-		SERVO_MoveTo(au16_SERVO_Instance, au8_Angle);
-		au8_Angle -= 10;
-		osDelay(50);
-	}
+	SERVO_MoveTo(au16_SERVO_Instance, 180);
+	osDelay(1000);
+	SERVO_MoveTo(au16_SERVO_Instance, 0);
+	osDelay(1000);
+//	while(au8_Angle < 180)
+//	{
+//		SERVO_MoveTo(au16_SERVO_Instance, au8_Angle);
+//		au8_Angle += 10;
+//		osDelay(50);
+//	}
+//	osDelay(250);
+//	while(au8_Angle > 0)
+//	{
+//		SERVO_MoveTo(au16_SERVO_Instance, au8_Angle);
+//		au8_Angle -= 10;
+//		osDelay(50);
+//	}
 }

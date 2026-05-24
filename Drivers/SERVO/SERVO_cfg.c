@@ -16,7 +16,7 @@
 
 SERVO_CfgType SERVO_CfgParam[SERVO_NUM] =
 {
-	// Servo Motor 1 Configurations
+	// Servo Motor 4 Configurations
     {
 	    GPIOA,
 		GPIO_PIN_6,
@@ -27,7 +27,7 @@ SERVO_CfgType SERVO_CfgParam[SERVO_NUM] =
 		min_pulse,
 		max_pulse
 	},
-	// Servo Motor 2 Configurations
+	// Servo Motor 3 Configurations
 	{
 		GPIOA,
 		GPIO_PIN_7,
@@ -38,7 +38,7 @@ SERVO_CfgType SERVO_CfgParam[SERVO_NUM] =
 		min_pulse,
 		max_pulse
 	},
-	// Servo Motor 3 Configurations
+	// Servo Motor 2 Configurations
 	{
 		GPIOB,
 		GPIO_PIN_0,
@@ -49,7 +49,7 @@ SERVO_CfgType SERVO_CfgParam[SERVO_NUM] =
 		min_pulse,
 		max_pulse
 	},
-	// Servo Motor 4 Configurations
+	// Servo Motor 1 Configurations
 	{
 		GPIOB,
 		GPIO_PIN_1,
@@ -60,7 +60,7 @@ SERVO_CfgType SERVO_CfgParam[SERVO_NUM] =
 		min_pulse,
 		max_pulse
 	},
-	// Servo Motor 5 Configurations (DC Motor joint line)
+	// Servo Motor 0 Configurations (DC Motor joint line)
 	{
 		GPIOA,
 		GPIO_PIN_3,

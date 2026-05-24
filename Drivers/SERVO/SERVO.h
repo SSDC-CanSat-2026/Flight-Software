@@ -19,7 +19,7 @@
 #define APB1_clk 64000000
 #define APB2_clk 64000000
 #define min_pulse 0.65
-#define max_pulse 2.3
+#define max_pulse 2.5
 
 #include "stm32g4xx_hal.h"
 

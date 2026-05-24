@@ -27,6 +27,7 @@ void init_mission_data(void)
 	memset(&global_mission_data, 0, sizeof(global_mission_data));
 
 	global_mission_data.TEAM_ID = 1075;
+	global_mission_data.MISSION_TIME_ms = 0;
 	strcpy(global_mission_data.MISSION_TIME, "XX:XX:XX");
 	global_mission_data.PACKET_COUNT = 0;
 
