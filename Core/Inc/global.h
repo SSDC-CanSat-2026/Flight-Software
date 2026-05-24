@@ -19,6 +19,9 @@
 
 // flags
 extern volatile double simulated_pressure;
+extern volatile uint8_t calibrating;
+extern volatile uint8_t cal_count;
+extern volatile float cal_sum;
 
 typedef struct
 {

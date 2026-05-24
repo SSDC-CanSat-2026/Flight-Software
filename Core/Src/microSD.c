@@ -7,6 +7,7 @@
 
 #include "../Inc/microSD.h"
 #include <stdio.h>
+#include "stm32g4xx_it.h"
 
 void check_fatfs_guards(void)
 {
@@ -64,7 +65,7 @@ void read_SD(char* buf, char filename[]) {
 		snprintf(filepath, sizeof(filepath), "%s%s", USERPath, filename);
 
 	    FIL* fil = get_fil_for_file(filename);
-	    if (fil == NULL) return 7;  // unknown filename
+	    if (fil == NULL) return;  // unknown filename
 
 		result = f_open(fil, filepath, FA_READ);
 		if (result != FR_OK) {
