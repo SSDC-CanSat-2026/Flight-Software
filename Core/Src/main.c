@@ -594,7 +594,7 @@ static void MX_I2C3_Init(void)
 
   /* USER CODE END I2C3_Init 1 */
   hi2c3.Instance = I2C3;
-  hi2c3.Init.Timing = 0x00C12166;
+  hi2c3.Init.Timing = 0x10B17DB5;
   hi2c3.Init.OwnAddress1 = 0;
   hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -1369,12 +1369,12 @@ void StartReadSensors(void const * argument)
    global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
 
    global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
-   global_mission_data.ACCEL_YAW = ICM42688P_Data.accel_yaw;
+   global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
    global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
 
    global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
    global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
-   global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+   global_mission_data.ACCEL_YAW = ICM42688P_Data.accel_yaw;
 
 //   struct bmm350_mag_temp_data mag_data;
 //   BMM350_read_mag_data(&bmm350, &mag_data);
@@ -1382,12 +1382,14 @@ void StartReadSensors(void const * argument)
     uint16_t voltage = 0;
     HAL_StatusTypeDef status = BQ28Z610_ReadVoltage(&hi2c3, &voltage);
     if (status == HAL_OK) {
-        HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
-    } else if (status == HAL_BUSY) {
-        HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
-    } else {
-        HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
-        HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+        global_mission_data.VOLTAGE = (float)voltage / 1000;
+    }
+
+    int16_t current = 0;
+    status = BQ28Z610_ReadCurrent(&hi2c3, &current);
+    if (status == HAL_OK)
+    {
+    	global_mission_data.CURRENT = (float)current;
     }
 
 
@@ -1411,6 +1413,13 @@ void StartReadSensors(void const * argument)
             global_mission_data.GPS_SATS = gga_data.num_satellites;
             // TODO : TBD but we *may* want to actually have logic that lets us utilize the RMC data, just a thought - Joel
        }
+        else if (result == 2)
+        {
+//        	rmc_data.
+			global_mission_data.GPS_LATITUDE = rmc_data.latitude;
+        	global_mission_data.GPS_LONGITUDE = rmc_data.longitude;
+//        	global_mission_data.
+        }
    }
 
 //    RTC_TimeTypeDef sTime = {0};
@@ -1621,7 +1630,7 @@ void StartSendTelemetry(void const * argument)
 	}
 
     // create an empty buffer for the telemetry packet string
-    char telemetry_string[200];
+    char telemetry_string[200] = {0};
 
     // Generic temporary variable for use in sprintf() calls, etc.
     uint16_t str_len = 0;
@@ -1633,7 +1642,7 @@ void StartSendTelemetry(void const * argument)
     HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
     // fill the buffer with the first half of the packet
-    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.3f,%.1f,%d,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
+    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.2f,%.2f,%.3f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%s,%.4f,%.4f,%.4f,%d,%s",
                       global_mission_data.TEAM_ID,      // team id (1075)
                       global_mission_data.MISSION_TIME, // mission time
                       global_mission_data.PACKET_COUNT, // packet count
@@ -1643,12 +1652,12 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.TEMPERATURE,  // temperature (C)
                       global_mission_data.PRESSURE,     // pressure (kPa)
                       global_mission_data.VOLTAGE,      // battery voltage (V)
-					  0,
+					  global_mission_data.CURRENT,
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
                       global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
-                      global_mission_data.ACCEL_X,                 // accelerometer roll (degrees/s^2)
-                      global_mission_data.ACCEL_YAW,                 // accelerometer pitch (degrees/s^2)
+                      global_mission_data.ACCEL_X,                 // accelerometer roll (degrees/s^2)   // These are just normal XYZ for testing
+                      global_mission_data.ACCEL_Y,                 // accelerometer pitch (degrees/s^2)
                       global_mission_data.ACCEL_Z,                 // accelerometer yaw (degrees/s^2)
                       global_mission_data.GPS_TIME,                // GPS time
                       global_mission_data.GPS_ALTITUDE,            // GPS (absolute) altitude (m)
@@ -1658,7 +1667,7 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.CMD_ECHO                 // tracks previously received command
     );
 
-    char frame[200];
+    char frame[200] = {0};
     uint16_t data_len = 0;
     xbee_status_t status = xbee_send_api_packet(&telemetry_string[0], str_len, &frame[0], sizeof(frame), &data_len);
     if (status != XBEE_OK) {
@@ -1669,12 +1678,10 @@ void StartSendTelemetry(void const * argument)
 	HAL_UART_Transmit(&huart3, frame, data_len, HAL_MAX_DELAY);
 //    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
 
-	uint32_t bytes_written = write_SD(&telemetry_string[0], str_len, "CanSat_2025_FlighSoftWare.csv", 0);
+	uint32_t bytes_written = write_SD(&telemetry_string[0], str_len, "FSW.csv", 0);
 
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
-
-    // write_SD(telemetry_string, str_len, "CanSat_Data_2026.csv");
 
     osSemaphoreRelease(globalDataHandle);
     // exit the critical region once both packets have been sent

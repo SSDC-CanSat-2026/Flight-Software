@@ -21,5 +21,6 @@ typedef struct BQ28Z610_Voltage
 */
 
 HAL_StatusTypeDef BQ28Z610_ReadVoltage(I2C_HandleTypeDef *hi2c, uint16_t *voltage);
+HAL_StatusTypeDef BQ28Z610_ReadCurrent(I2C_HandleTypeDef *hi2c, int16_t *current);
 
 #endif /* BQ28Z610_BQ28Z610I2C_H_ */
