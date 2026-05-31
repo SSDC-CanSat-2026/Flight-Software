@@ -33,6 +33,7 @@
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
 #include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
 #include "../../Drivers/TeseoLIV3F/LIV3F.h"         // GPS Module
+#include "../../Drivers/SERVO/SERVO.h"      // Servos
 #include "../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h"
 /* USER CODE END Includes */
 
@@ -589,7 +590,7 @@ static void MX_I2C3_Init(void)
 
   /* USER CODE END I2C3_Init 1 */
   hi2c3.Instance = I2C3;
-  hi2c3.Init.Timing = 0x00C12166;
+  hi2c3.Init.Timing = 0x10B17DB5;
   hi2c3.Init.OwnAddress1 = 0;
   hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -1329,33 +1330,33 @@ void StartReadSensors(void const * argument)
      */
 
     MS5607Readings MS5607_Data = MS5607ReadValues();
-    if (global_mission_data.MODE == 'F')
+    // TODO : This should probably just use the flag simulation_enable
+    if (simulation_enable == 1)
     { // In Flight Mode
       global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
     }
     else
     { // In Simulation Mode and need to read from the CSV instead.
       // TODO
+      global_mission_data.PRESSURE = simulated_pressure;
     }
     global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
 //    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
 //    determineState(global_mission_data.ALTITUDE);
 
-		if(calibrating)
-		{
-			cal_sum += global_mission_data.PRESSURE;
-			cal_count++;
+    if(calibrating) {
+        cal_sum += global_mission_data.PRESSURE;
+        cal_count++;
 
-			if(cal_count >= 10)
-			{
-				float pressure_avg = cal_sum / cal_count;
-				global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
+        if(cal_count >= 10) {
+            float pressure_avg = cal_sum / cal_count;
+            global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
 
-				calibrating = 0;
-				is_calibrated = 1;
-			}
-		}
+            calibrating = 0;
+            is_calibrated = 1;
+        }
+    }
 
    ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
@@ -1366,9 +1367,25 @@ void StartReadSensors(void const * argument)
    global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
    global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
 
-//   uint16_t voltage;
-//   BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+   global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
+   global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
+   global_mission_data.ACCEL_YAW = ICM42688P_Data.accel_yaw;
 
+//   struct bmm350_mag_temp_data mag_data;
+//   BMM350_read_mag_data(&bmm350, &mag_data);
+
+    uint16_t voltage = 0;
+    HAL_StatusTypeDef status = BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+    if (status == HAL_OK) {
+        global_mission_data.VOLTAGE = (float)voltage / 1000;
+    }
+
+    int16_t current = 0;
+    status = BQ28Z610_ReadCurrent(&hi2c3, &current);
+    if (status == HAL_OK)
+    {
+    	global_mission_data.CURRENT = (float)current;
+    }
 
    //New code
    if (GPS_READY)
@@ -1395,7 +1412,6 @@ void StartReadSensors(void const * argument)
     	   global_mission_data.GPS_LONGITUDE = rmc_data.longitude;
 
     	   strcpy(global_mission_data.GPS_TIME, rmc_data.gps_time);
-//    	   global_mission_data.
        }
        else
        {
@@ -1435,12 +1451,12 @@ void StartReadSensors(void const * argument)
 //    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
 //    snprintf(testing_data, sizeof(testing_data), "TESTING,%lf,%lf,%lf,%lf,%lf,%lf", global_mission_data.ACCEL_X, global_mission_data.ACCEL_Y,
 //    									global_mission_data.ACCEL_Z, global_mission_data.GYRO_R, global_mission_data.GYRO_P, global_mission_data.GYRO_Y);
+//
+//    size_t testing_length = strlen(testing_data);
 
-    size_t testing_length = strlen(testing_data);
+//    FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
 
-    FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
-
-    osSemaphoreRelease(globalDataHandle);
+//    osSemaphoreRelease(globalDataHandle);
 
     osDelay(100);
   }
@@ -1591,7 +1607,25 @@ void StartReadCommands(void const * argument)
         else if (strncmp(rx_string, "CMD,1075,MEC,WIRE,OFF", 21) == 0)
         {
         // turn off MEC command (servos for GNC?)
-        }
+        }  else if (strncmp(rx_string, "CMD,1075,MEC,SERVO0,", 20) == 0) {
+      float angle = atof(rx_string + 20);
+      SERVO_MoveTo(SERVO_Motor0, angle);
+    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO1,", 20) == 0) {
+      float angle = atof(rx_string + 20);
+      SERVO_MoveTo(SERVO_Motor1, angle);
+    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO2,", 20) == 0) {
+      float angle = atof(rx_string + 20);
+      SERVO_MoveTo(SERVO_Motor2, angle);
+    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO3,", 20) == 0) {
+      float angle = atof(rx_string + 20);
+      SERVO_MoveTo(SERVO_Motor3, angle);
+    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO4,", 20) == 0) {
+      float angle = atof(rx_string + 20);
+      SERVO_MoveTo(SERVO_Motor4, angle);
+    } else if (strncmp(rx_string, "CMD,1075,MEC,EGG,", 17) == 0) {
+      float angle = atof(rx_string + 17);
+      SERVO_MoveTo(EGG_SERVO, angle);
+    }
 
         COMMAND_READY = 0;
 
@@ -1615,17 +1649,18 @@ void StartReadCommands(void const * argument)
 void StartSendTelemetry(void const * argument)
 {
   /* USER CODE BEGIN StartSendTelemetry */
-	osStatus stat = osErrorOS;
+  osStatus stat = osErrorOS;
+  global_flags.telemetry_enable = 1;
   /* Infinite loop */
-  for (;;)
-  {
-    // manually defines a critical region to ensure half-packets are never transmitted
-//    taskENTER_CRITICAL();
+  for (;;) {
+    // manually defines a critical region to ensure half-packets are never
+    // transmitted
+    //    taskENTER_CRITICAL();
 
-	if (!telemetry_enable) {
-		osThreadYield();
-		continue;
-	}
+    if (!global_flags.telemetry_enable) {
+      osThreadYield();
+      continue;
+    }
 
     // create an empty buffer for the telemetry packet string
     char telemetry_string[200];
@@ -1637,10 +1672,10 @@ void StartSendTelemetry(void const * argument)
     	continue; // Until we can acquire a lock on the data, we do not want to read from it
     }
 
-    //HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
     // fill the buffer with the first half of the packet
-    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%0.1f,%0.3f,%0.3f,%0.3f,%s,%0.1f,%0.1f,%0.1f,%d,%s",
+    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.2f,%.2f,%.3f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%s,%.4f,%.4f,%.4f,%d,%s",
                       global_mission_data.TEAM_ID,      // team id (1075)
                       global_mission_data.MISSION_TIME, // mission time
                       global_mission_data.PACKET_COUNT, // packet count
@@ -1650,11 +1685,11 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.TEMPERATURE,  // temperature (C)
                       global_mission_data.PRESSURE,     // pressure (kPa)
                       global_mission_data.VOLTAGE,      // battery voltage (V)
-					  0.0f,								// battery current (A)
+					  global_mission_data.CURRENT,
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
                       global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
-                      global_mission_data.ACCEL_X,                 // accelerometer roll (degrees/s^2)
+                      global_mission_data.ACCEL_X,                 // accelerometer roll (degrees/s^2)   // These are just normal XYZ for testing
                       global_mission_data.ACCEL_Y,                 // accelerometer pitch (degrees/s^2)
                       global_mission_data.ACCEL_Z,                 // accelerometer yaw (degrees/s^2)
                       global_mission_data.GPS_TIME,                // GPS time
@@ -1665,7 +1700,7 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.CMD_ECHO                 // tracks previously received command
     );
 
-    char frame[200];
+    char frame[200] = {0};
     uint16_t data_len = 0;
     xbee_status_t status = xbee_send_api_packet(&telemetry_string[0], str_len, &frame[0], sizeof(frame), &data_len);
     if (status != XBEE_OK) {
@@ -1673,26 +1708,32 @@ void StartSendTelemetry(void const * argument)
     	continue;
 
     }
-
 	HAL_UART_Transmit(&huart3, frame, data_len, HAL_MAX_DELAY);
 //    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
+
+	uint32_t bytes_written = write_SD(&telemetry_string[0], str_len, "FSW.csv", 0);
 
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
 
-    // write_SD(telemetry_string, str_len, "CanSat_Data_2026.csv");
+    uint32_t result = write_SD(telemetry_string, str_len, "FSW.csv", 0);
+    if (result != FR_OK)
+    	HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
+    global_mission_data.MISSION_TIME_ms = HAL_GetTick();
+    time_to_string(global_mission_data.MISSION_TIME_ms, &global_mission_data.MISSION_TIME[0]);
+    strcpy(&global_config.MISSION_TIME[0], &global_mission_data.MISSION_TIME[0]);
+    save_config_to_sd();
     osSemaphoreRelease(globalDataHandle);
     // exit the critical region once both packets have been sent
-//    taskEXIT_CRITICAL();
+    //    taskEXIT_CRITICAL();
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-//    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
-
+//    HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
 
     osDelay(1000);
   }
   /* USER CODE END StartSendTelemetry */
-}
+}+0
 
 /* USER CODE BEGIN Header_StartGNC */
 /**
@@ -1706,30 +1747,30 @@ void StartGNC(void const * argument)
   /* USER CODE BEGIN StartGNC */
 
   /* Infinite loop */
-  for (;;)
-  {
+  for (;;) {
 
-//	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
-//	if (simulation_pre) {
-//		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
-//	} else {
-//		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
-//	}
+    //	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
     osDelay(250);
-	  if (GPS_READY) {
+    if (GPS_READY) {
 
-		  GPS_READY = 0;
-	  }
+      GPS_READY = 0;
+    }
     osDelay(1);
 
-//    if (global_micro_sd_data.successfullyMounted) {
-//    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
-//    }
-//    else {
-//    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_RESET);
-//    }
+    //    if (global_micro_sd_data.successfullyMounted) {
+    //    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
+    //    }
+    //    else {
+    //    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin,
+    //    GPIO_PIN_RESET);
+    //    }
 
-     HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+    SERVO_Sweep(EGG_SERVO);
+
+//    SERVO_RawMove(SERVO_Motor2,)
+
+    HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+    osThreadYield();
   }
   /* USER CODE END StartGNC */
 }
@@ -1744,42 +1785,50 @@ void StartGNC(void const * argument)
 void StartInit(void const * argument)
 {
   /* USER CODE BEGIN StartInit */
-	init_SD();
+  init_SD();
 
-	if (global_micro_sd_data.successfullyMounted) {
-		uint32_t result = load_config_from_sd();
-		if (result != APP_OK) {
-			// HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
-			// Set default config
-			set_default_config();
-			save_config_to_sd();
-		}
-	}
-	else {
-		// HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
-		set_default_config();
-	}
+  if (global_micro_sd_data.successfullyMounted) {
+    uint32_t result = load_config_from_sd();
+    if (result != APP_OK) {
+      HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+      // Set default config
+      set_default_config();
+      save_config_to_sd();
+    }
+  } else {
+//    HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+    set_default_config();
+  }
+
+  // Read Config file and update accordingly
+  global_mission_data.ALTITUDE_OFFSET = global_config.ALTITUDE_OFFSET;
+  global_mission_data.PACKET_COUNT = global_config.PACKET_COUNT;
+
+  strcpy(global_mission_data.MISSION_TIME, global_config.MISSION_TIME);
+  strcpy(global_mission_data.STATE, global_config.STATE);
+
+  // This lets you see the minimum amount of the stack was remaining at any
+  // time
+  //  during a thread's execution.
+  UBaseType_t stackHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
+
+//  HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
+
+  SERVO_Init(SERVO_Motor0, &htim3);
+  SERVO_Init(SERVO_Motor1, &htim3);
+  SERVO_Init(SERVO_Motor2, &htim3);
+  SERVO_Init(SERVO_Motor3, &htim3);
+  SERVO_Init(SERVO_Motor4, &htim15);
 
 
+  HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
 
-	// Read Config file and update accordingly
-	global_mission_data.ALTITUDE_OFFSET = global_config.ALTITUDE_OFFSET;
-	global_mission_data.PACKET_COUNT	= global_config.PACKET_COUNT;
+  // Init task has nothing left to do — delete itself
+  //	osThreadTerminate(osThreadGetId());
+  vTaskDelete(NULL);
 
-	strcpy(global_mission_data.MISSION_TIME, global_config.MISSION_TIME);
-	strcpy(global_mission_data.STATE, global_config.STATE);
-
-	// This lets you see the minimum amount of the stack was remaining at any time
-	//  during a thread's execution.
-	UBaseType_t stackHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
-
-
-
-	// Init task has nothing left to do — delete itself
-//	osThreadTerminate(osThreadGetId());
-	vTaskDelete(NULL);
-
-	for(;;);
+  for (;;)
+    ;
 
   /* USER CODE END StartInit */
 }

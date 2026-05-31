@@ -4,6 +4,11 @@
 #include "bmm350.h"
 #include "stm32g4xx_hal.h"
 
+
+BMM350_INTF_RET_TYPE BMM350_init(struct bmm350_dev* bmm350, I2C_HandleTypeDef* I2C_handle);
+
+BMM350_INTF_RET_TYPE BMM350_read_mag_data(struct bmm350_dev* bmm350, struct bmm350_mag_temp_data* mag_data);
+
 /*
 *  @details This function initializes the bmm350 struct with the necessary settings, mostly all normal and default mode, and calls the BMM350 API init function from the manufacturer
 *  @param[in,out] bmm350 : Pointer to struct bmm350_dev that contains state for sensor
@@ -12,7 +17,7 @@
 *  @retval = 0 -> Success
 *  @retval < 0 -> Error
 */
-BMM350_INTF_RET_TYPE BMM350_init(struct bmm350_dev* bmm350, I2C_HandleTypeDef* I2C_handle);
+BMM350_INTF_RET_TYPE BMM350_I2C_read(uint8_t reg_addr, uint8_t *data, uint32_t len, void *intf_ptr);
 
 /*
 *  @details This function calls the internal manufacturer provided read data function and writes it to the mag_data struct
@@ -22,7 +27,7 @@ BMM350_INTF_RET_TYPE BMM350_init(struct bmm350_dev* bmm350, I2C_HandleTypeDef* I
 *  @retval = 0 -> Success
 *  @retval < 0 -> Error
 */
-BMM350_INTF_RET_TYPE BMM350_read_mag_data(struct bmm350_dev* bmm350, struct bmm350_mag_temp_data* mag_data);
+BMM350_INTF_RET_TYPE BMM350_I2C_write(uint8_t reg_addr, const uint8_t *data, uint32_t len, void *intf_ptr);
 
 /*
 *  @details This function checks if there was a data interrupt (not on the actual pin as we have the interrupt pin disabled) and reads the data if it is ready

@@ -111,9 +111,9 @@ ICM42688P_AccelData ICM42688P_read_data()
 
     uint32_t time = 0;
 
-    // data.accel_p = Get_Accel_P(data.gyro_p, time);
-    // data.accel_y = Get_Accel_Y(data.gyro_y, time);
-    // data.accel_r = -Get_Accel_R(data.gyro_r, time);
+    data.accel_p = Get_Accel_P(data.gyro_p, time);
+    data.accel_yaw = Get_Accel_Y(data.gyro_y, time);
+    data.accel_r = -Get_Accel_R(data.gyro_r, time);
 
 //    gyro_old_p = data.gyro_p;
 //    gyro_old_y = data.gyro_y;

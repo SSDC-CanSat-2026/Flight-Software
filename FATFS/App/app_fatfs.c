@@ -49,12 +49,13 @@ typedef enum {
 /* Private variables ---------------------------------------------------------*/
 FATFS USERFatFs;    /* File system object for USER logical drive */
 FIL USERFile;       /* File  object for USER */
-FIL fil_telemetry;
-FIL fil_debug;
-FIL fil_config;
 char USERPath[4];   /* USER logical drive path */
 /* USER CODE BEGIN PV */
 FS_FileOperationsTypeDef Appli_state = APPLICATION_IDLE;
+
+FIL fil_telemetry;
+FIL fil_debug;
+FIL fil_config;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
