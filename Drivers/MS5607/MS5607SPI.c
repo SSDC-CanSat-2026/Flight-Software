@@ -332,14 +332,13 @@ void MS5607SetPressureOSR(MS5607OSRFactors pOSR)
 /*
   AltitudeCalculations.c START HERE
 */
-float const lower_altitude_threshold = 50.0;
+float const lower_altitude_threshold = 25.0;
 
 // Index is by seconds ago the value was calculated
 float altitude_history[] = {0, 0, 0};
 
 float max_altitude = 0.0;
 float apogee_base_ratio = 0.80;
-float apogee_difference_ratio = 0.00;
 float const apogee_offset_height = 15.00;
 
 float calibrated_atitude = 0.00;
@@ -361,7 +360,7 @@ float calibrated_altitude = 0.00;
 float calculateAltitude(double pressure) {
 	double pressure_mb = 33.8639 * (0.2953 * pressure);
 	float h_meter = 0.3048 * (1 - pow((pressure_mb / 1013.25), 0.190284)) * 145366.54;
-	if (is_calibrated)
+	if (global_flags.is_calibrated)
 	{
       // Clear altitude history
       memset(altitude_history, 0, 3);
@@ -384,50 +383,66 @@ float calculate_abs_altitude(double pressure) {
 
 // Idea is to calculateAltitude then immediately call this function
 // to detemrine state.
-void determineState(double altitude){
-    // LAUNCH_PAD state
-    if (strcmp(global_mission_data.STATE, "LAUNCH_PAD") == 0) {
-        if (altitude > lower_altitude_threshold) {
-            char _state[] = "ASCENT";
-            memcpy(global_mission_data.STATE, _state, sizeof(_state));
-        }
-    }
-    else if (strcmp(global_mission_data.STATE, "ASCENT") == 0) {
-        if (altitude > max_altitude) max_altitude = altitude;
-        apogee_difference_ratio = 0;
-        // apogee_difference_ratio = apogee_offset_height / max_altitude;
+void determineState(){
+	// NOTE: global_mission_data.ALTITUDE is for the altitude at this current time.
 
-        if (fmax(altitude_history[0], altitude_history[1]) < max_altitude - 15) {
-            mec_wire_enable = 1;
+	// LAUNCHPAD STATE
+	if (strcmp(global_mission_data.STATE, "LAUNCH_PAD") == 0){
+		// Replace with 2 if the units are in g. Currently in m/s^2
+		if ((global_mission_data.ACCEL_Z > 18) && (global_mission_data.ALTITUDE > lower_altitude_threshold)) {
+			char _state[] = "ASCENT";
+			memcpy(global_mission_data.STATE, _state, sizeof(_state));
+		}
+	}
+	// ASCENT STATE
+	else if (strcmp(global_mission_data.STATE, "ASCENT") == 0){
+		if(global_mission_data.ALTITUDE > max_altitude){
+			max_altitude = global_mission_data.ALTITUDE;
+		}
 
-            char _state[] = "APOGEE";
-            memcpy(global_mission_data.STATE, _state, sizeof(_state));
-        }
-    }
-    else if (strcmp(global_mission_data.STATE, "APOGEE") == 0) {
-        if (altitude > max_altitude * (apogee_base_ratio)) {
-            char _state[] = "DESCENT";
-            memcpy(global_mission_data.STATE, _state, sizeof(_state));
-        }
-        else if (altitude < max_altitude * (apogee_base_ratio)) {
-            char _state[] = "PROBE_RELEASE";
-            memcpy(global_mission_data.STATE, _state, sizeof(_state));
-        }
-    }
-    else if (strcmp(global_mission_data.STATE, "DESCENT") == 0) {
-        if (altitude < max_altitude * (apogee_base_ratio)) {
-            char _state[] = "PROBE_RELEASE";
-            memcpy(global_mission_data.STATE, _state, sizeof(_state));
-        }
-    }
-    else if (strcmp(global_mission_data.STATE, "PROBE_RELEASE") == 0) {
-        if (altitude < lower_altitude_threshold) {
-            char _state[] = "LANDED";
-            memcpy(global_mission_data.STATE, _state, sizeof(_state));
-        }
-    }
+		// Replace with 1 if the units are in g. Current in m/s^2
+		if(fabs(global_mission_data.ACCEL_X) + fabs(global_mission_data.ACCEL_Y) <= 9.8 || fmax(altitude_history[0], altitude_history[1]) < max_altitude){
+			global_flags.mec_wire_enable = 1;
+
+			char _state[] = "APOGEE";
+			memcpy(global_mission_data.STATE, _state, sizeof(_state));
+		}
+	}
+	// APOGEE STATE
+	else if (strcmp(global_mission_data.STATE, "APOGEE") == 0){
+		char _state[] = "DESCENT";
+		memcpy(global_mission_data.STATE, _state, sizeof(_state));
+	}
+	// DESCENT STATE
+	else if (strcmp(global_mission_data.STATE, "DESCENT") == 0){
+		if (global_mission_data.ALTITUDE < max_altitude * (apogee_base_ratio + 0.05)){
+			char _state[] = "PROBE_RELEASE";
+			memcpy(global_mission_data.STATE, _state, sizeof(_state));
+		}
+	}
+	// PROBE_RELEASE STATE
+	else if (strcmp(global_mission_data.STATE, "PROBE_RELEASE") == 0){
+		if (global_mission_data.ALTITUDE < 2.5){
+			global_flags.mec_egg_release = 1;
+
+			char _state[] = "PAYLOAD_RELEASE";
+			memcpy(global_mission_data.STATE, _state, sizeof(_state));
+		}
+	}
+	// PAYLOAD_RELEASE STATE
+	else if (strcmp(global_mission_data.STATE, "PAYLOAD_RELEASE") == 0){
+		if (global_mission_data.ALTITUDE < 1.0){
+			char _state[] = "LANDED";
+			memcpy(global_mission_data.STATE, _state, sizeof(_state));
+		}
+	}
 }
+
+/* To prevent main.c from accessing variables not in main.c*/
 void calibrateAltitudeHistory(void){
 	memset(altitude_history, 0, 3); // Because you cannot access altitude_history from main.c
 }
+//void calibrateAltitudeHistory(void){
+//	memset(altitude_history, 0, 3); // Because you cannot access altitude_history from main.c
+//}
 

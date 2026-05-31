@@ -7,6 +7,7 @@
 
 #include "../Inc/microSD.h"
 #include <stdio.h>
+#include "stm32g4xx_it.h"
 
 void check_fatfs_guards(void)
 {
@@ -47,7 +48,7 @@ void init_SD(void){
 
 static FIL* get_fil_for_file(const char* filename)
 {
-    if (strstr(filename, "CanSat_Data") != NULL) return &fil_telemetry;
+    if (strstr(filename, "FSW") != NULL) return &fil_telemetry;
     if (strstr(filename, "debug")       != NULL) return &fil_debug;
     if (strstr(filename, "config")      != NULL) return &fil_config;
     return NULL;  // unknown file
@@ -95,13 +96,14 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
     FIL* fil = get_fil_for_file(filename);
     if (fil == NULL) return 7;  // unknown filename
 
-    memset(fil, 0, sizeof(FIL));  // ← add this line
+//    memset(fil, 0, sizeof(FIL));  // ← add this line
 
-    char filepath[32] = {0};
-    snprintf(filepath, sizeof(filepath), "%s%s", USERPath, filename);
+    char filepath[64] = {0};
+    snprintf(filepath, sizeof(filepath), "0:/%s", filename);
 
     check_fatfs_guards();
     result = f_open(fil, filepath, FA_WRITE | FA_OPEN_ALWAYS);
+//    result = f_open(fil, "0:/test.txt", FA_WRITE | FA_OPEN_ALWAYS);
 //    result = f_open(fil, filepath, FLAGS);
     if (result != FR_OK) return 1;
     fileIsOpen = 1;
