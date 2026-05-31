@@ -24,16 +24,17 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
+#include "../../Drivers/MS5607/MS5607SPI.h" // Pressure and Temperature Sensor
+#include "../../Drivers/SERVO/SERVO.h"      // Servos
+#include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
+#include "../../Drivers/TeseoLIV3F/LIV3F.h"       // GPS Module
+#include "../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h"
+#include "../Inc/FreeRTOSConfig.h"
 #include "../Inc/config.h"
 #include "../Inc/global.h"
-#include "../Inc/xbee.h"
 #include "../Inc/microSD.h"
-#include "../Inc/FreeRTOSConfig.h"
-#include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
-#include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
-#include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
-#include "../../Drivers/TeseoLIV3F/LIV3F.h"         // GPS Module
-#include "../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h"
+#include "../Inc/xbee.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -44,9 +45,16 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define BUFFER_SIZE 		256
-#define XBEE_MAX_PAYLOAD 	80   // Safe value
+#define BUFFER_SIZE 256
+#define XBEE_MAX_PAYLOAD 80 // Safe value
 
+#define SERVO_Motor0 4
+#define SERVO_Motor1 3
+#define SERVO_Motor2 2
+#define SERVO_Motor3 1
+#define SERVO_Motor4 0
+
+#define EGG_SERVO SERVO_Motor1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -89,16 +97,16 @@ osSemaphoreId globalDataHandle;
 /* USER CODE BEGIN PV */
 
 uint16_t Timer1, Timer2;
-uint8_t gps_dma_buffer[BUFFER_SIZE]   = { 0 };
-uint8_t xbee_dma_buffer[BUFFER_SIZE]  = { 0 };
-char gps_receive_buffer[BUFFER_SIZE]  = { 0 };
-char xbee_receive_buffer[BUFFER_SIZE]  = { 0 };
+uint8_t gps_dma_buffer[BUFFER_SIZE] = {0};
+uint8_t xbee_dma_buffer[BUFFER_SIZE] = {0};
+char gps_receive_buffer[BUFFER_SIZE] = {0};
+char xbee_receive_buffer[BUFFER_SIZE] = {0};
 
 // Flags for GPS and XBEE since they use UART DMA
-volatile uint16_t GPS_SIZE 	   	= 0;
-volatile uint8_t GPS_READY 	   	= 0;
-volatile uint16_t COMMAND_SIZE 	= 0;
-volatile uint8_t COMMAND_READY 	= 0;
+volatile uint16_t GPS_SIZE = 0;
+volatile uint8_t GPS_READY = 0;
+volatile uint16_t COMMAND_SIZE = 0;
+volatile uint8_t COMMAND_READY = 0;
 
 GGA_Data_t gga_data;
 RMC_Data_t rmc_data;
@@ -136,16 +144,13 @@ void StartInit(void const * argument);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
-{
-  if (huart->Instance == UART5)
-  {
-    if (!GPS_READY)
-    {
-		memcpy(gps_receive_buffer, gps_dma_buffer, size);
-		GPS_SIZE = size;
-		GPS_READY = 1;
-		memset(gps_dma_buffer, 0, size);
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
+  if (huart->Instance == UART5) {
+    if (!GPS_READY) {
+      memcpy(gps_receive_buffer, gps_dma_buffer, size);
+      GPS_SIZE = size;
+      GPS_READY = 1;
+      memset(gps_dma_buffer, 0, size);
     }
 
     if (__HAL_UART_GET_FLAG(&huart5, UART_FLAG_ORE)) {
@@ -157,47 +162,42 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
 
   }
 
-  else if (huart->Instance == USART3)
-  {
-    if (!COMMAND_READY)
-    {
-    	memcpy(xbee_receive_buffer, xbee_dma_buffer, size);
-    	COMMAND_SIZE = size;
-		COMMAND_READY = 1;
-		memset(xbee_dma_buffer, 0, size);
-
+  else if (huart->Instance == USART3) {
+    if (!COMMAND_READY) {
+      memcpy(xbee_receive_buffer, xbee_dma_buffer, size);
+      COMMAND_SIZE = size;
+      COMMAND_READY = 1;
+      memset(xbee_dma_buffer, 0, size);
     }
 
     if (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_ORE)) {
-    	__HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF);
+      __HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF);
     }
 
     HAL_UARTEx_ReceiveToIdle_DMA(huart, xbee_dma_buffer, BUFFER_SIZE);
     __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
-  }
-  else
-  {
+  } else {
     // FIXME : Change this for a DBG LED in the new code
-	  HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
   }
 }
 
 void HAL_UARTEx_ErrorCallback(UART_HandleTypeDef *huart) {
-	while(1) {
-		// 1 quick 2 slow to show a UART error
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
-		HAL_Delay(100);
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
-		HAL_Delay(100);
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
-		HAL_Delay(200);
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
-		HAL_Delay(200);
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
-		HAL_Delay(200);
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
-		HAL_Delay(200);
-	}
+  while (1) {
+    // 1 quick 2 slow to show a UART error
+    HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+    HAL_Delay(100);
+    HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+    HAL_Delay(100);
+    HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+    HAL_Delay(200);
+    HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+    HAL_Delay(200);
+    HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+    HAL_Delay(200);
+    HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_RESET);
+    HAL_Delay(200);
+  }
 }
 
 /* USER CODE END 0 */
@@ -257,7 +257,6 @@ int main(void)
   HAL_GPIO_WritePin(BMP_nCS_GPIO_Port, BMP_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(SD_nCS_GPIO_Port, SD_nCS_Pin, GPIO_PIN_SET);
 
-
   // Hold GPS in reset (LOW)
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
   HAL_Delay(100);
@@ -265,7 +264,7 @@ int main(void)
   // Fully reset UART5 peripheral
   __HAL_RCC_UART5_FORCE_RESET();
   __HAL_RCC_UART5_RELEASE_RESET();
-  MX_UART5_Init();   // reinitialize UART
+  MX_UART5_Init(); // reinitialize UART
 
   // Clear all flags
   __HAL_UART_CLEAR_OREFLAG(&huart5);
@@ -276,7 +275,7 @@ int main(void)
   // Fully reset UART3 peripheral
   __HAL_RCC_USART3_FORCE_RESET();
   __HAL_RCC_USART3_RELEASE_RESET();
-  MX_USART3_UART_Init();   // reinitialize UART
+  MX_USART3_UART_Init(); // reinitialize UART
 
   // Clear all flags
   __HAL_UART_CLEAR_OREFLAG(&huart3);
@@ -299,22 +298,30 @@ int main(void)
 
   // Enable DMA call backs
   // UART 5
-  // Check if ORE flag is set, which can happen if data is present on UART RX line
+  // Check if ORE flag is set, which can happen if data is present on UART RX
+  // line
   if (__HAL_UART_GET_FLAG(&huart5, UART_FLAG_ORE)) {
     __HAL_UART_CLEAR_FLAG(&huart5, UART_CLEAR_OREF);
   }
   // receive until idle, then trigger interrupt
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart5, gps_dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
-  __HAL_DMA_DISABLE_IT(huart5.hdmarx, DMA_IT_HT); // Disables "Half Transfer" interrupt
+  HAL_UARTEx_ReceiveToIdle_DMA(
+      &huart5, gps_dma_buffer,
+      BUFFER_SIZE); // receive until idle, then trigger interrupt
+  __HAL_DMA_DISABLE_IT(huart5.hdmarx,
+                       DMA_IT_HT); // Disables "Half Transfer" interrupt
 
   // USART 3
-  // Check if ORE flag is set, which can happen if data is present on UART RX line
+  // Check if ORE flag is set, which can happen if data is present on UART RX
+  // line
   if (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_ORE)) {
     __HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF);
   }
   // receive until idle, then trigger interrupt
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart3, xbee_dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
-  __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT); // Disables "Half Transfer" interrupt
+  HAL_UARTEx_ReceiveToIdle_DMA(
+      &huart3, xbee_dma_buffer,
+      BUFFER_SIZE); // receive until idle, then trigger interrupt
+  __HAL_DMA_DISABLE_IT(huart3.hdmarx,
+                       DMA_IT_HT); // Disables "Half Transfer" interrupt
 
   /* USER CODE END 2 */
 
@@ -349,7 +356,7 @@ int main(void)
   readCommandsHandle = osThreadCreate(osThread(readCommands), NULL);
 
   /* definition and creation of sendTelemetry */
-  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 600);
+  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityAboveNormal, 0, 600);
   sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
 
   /* definition and creation of guideNavCtrl */
@@ -357,7 +364,7 @@ int main(void)
   guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
 
   /* definition and creation of Init */
-  osThreadDef(Init, StartInit, osPriorityHigh, 0, 512);
+  osThreadDef(Init, StartInit, osPriorityRealtime, 0, 512);
   InitHandle = osThreadCreate(osThread(Init), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -371,8 +378,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+  while (1) {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1262,32 +1268,32 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void vApplicationTickHook(void){
-	if(Timer1 > 0)
-		Timer1--;
-	if(Timer2 > 0)
-		Timer2--;
+void vApplicationTickHook(void) {
+  if (Timer1 > 0)
+    Timer1--;
+  if (Timer2 > 0)
+    Timer2--;
 }
 
 // This is a call back in case a thread has a stack overflow.
 // pcTaskName is the name of the offending task
-void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
-{
-    (void)xTask;
-    (void)pcTaskName;
-    // Forces a breakpoint in the debugger
-    __BKPT(0);
-    for (;;);
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
+  (void)xTask;
+  (void)pcTaskName;
+  // Forces a breakpoint in the debugger
+  __BKPT(0);
+  for (;;)
+    ;
 }
 
 // Incase there is an error with a Malloc somewhere
-void vApplicationMallocFailedHook(void)
-{
-    // Fires if pvPortMalloc fails — useful to catch heap exhaustion
+void vApplicationMallocFailedHook(void) {
+  // Fires if pvPortMalloc fails — useful to catch heap exhaustion
 
-	// Forces a breakpoint in the debugger
-    __BKPT(0);
-    for (;;);
+  // Forces a breakpoint in the debugger
+  __BKPT(0);
+  for (;;)
+    ;
 }
 
 /* USER CODE END 4 */
@@ -1309,13 +1315,12 @@ void StartReadSensors(void const * argument)
   char testing_data[200];
 
   /* Infinite loop */
-  for (;;)
-  {
-	stat = osSemaphoreWait(globalDataHandle, 100);
-	if (stat != osOK) {
-	  osThreadYield();
-	  continue;
-	}
+  for (;;) {
+    stat = osSemaphoreWait(globalDataHandle, 100);
+    if (stat != osOK) {
+      osThreadYield();
+      continue;
+    }
     // #1 PRIORITY: make sure mutex unlocks no matter what!!!!
 
     // -> if a HIGHER priority task attempts to access a locked resource,
@@ -1329,84 +1334,78 @@ void StartReadSensors(void const * argument)
      */
 
     MS5607Readings MS5607_Data = MS5607ReadValues();
-    if (global_mission_data.MODE == 'F')
-    { // In Flight Mode
+    if (global_mission_data.MODE == 'F') { // In Flight Mode
       global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
-    }
-    else
-    { // In Simulation Mode and need to read from the CSV instead.
-      // TODO
+    } else { // In Simulation Mode and need to read from the CSV instead.
+             // TODO
     }
     global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
-//    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
-//    determineState(global_mission_data.ALTITUDE);
+    //    global_mission_data.ALTITUDE =
+    //    calculateAltitude(global_mission_data.PRESSURE);
+    //    determineState(global_mission_data.ALTITUDE);
 
-		if(calibrating)
-		{
-			cal_sum += global_mission_data.PRESSURE;
-			cal_count++;
+    if (calibrating) {
+      cal_sum += global_mission_data.PRESSURE;
+      cal_count++;
 
-			if(cal_count >= 10)
-			{
-				float pressure_avg = cal_sum / cal_count;
-				global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
+      if (cal_count >= 10) {
+        float pressure_avg = cal_sum / cal_count;
+        global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
 
-				calibrating = 0;
-				is_calibrated = 1;
-			}
-		}
+        calibrating = 0;
+        global_flags.is_calibrated = 1;
+      }
+    }
 
-   ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
-   global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
-   global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
-   global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+    ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
+    global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
+    global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
 
-   global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
-   global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
-   global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
+    global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
+    global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+    global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
 
-   uint16_t voltage;
-   BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+//    uint16_t voltage;
+//    BQ28Z610_ReadVoltage(&hi2c3, &voltage);
 
+    // New code
+    if (GPS_READY) {
+      // From my understanding: When the DMA interrupt occurs, we will copy the
+      // message from the DMA buffer into the gps_receive_buffer. From there, we
+      // can then pass the receive buffer with the message into parse_gga
+      int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data);
+      GPS_READY = 0;
 
-   //New code
-   if (GPS_READY)
-      {
-       // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
-       // into the gps_receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
-       int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data);
-       GPS_READY = 0;
+      // result is 1 on success
+      if (result == 1) {
+        HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+        global_mission_data.GPS_LATITUDE = gga_data.latitude;
+        global_mission_data.GPS_LONGITUDE = gga_data.longitude;
+        global_mission_data.GPS_ALTITUDE = gga_data.altitude;
+        global_mission_data.GPS_SATS = gga_data.num_satellites;
+      }
+    }
 
-       //result is 1 on success
-       if (result == 1)
-       {
-           HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
-           global_mission_data.GPS_LATITUDE = gga_data.latitude;
-           global_mission_data.GPS_LONGITUDE = gga_data.longitude;
-           global_mission_data.GPS_ALTITUDE = gga_data.altitude;
-           global_mission_data.GPS_SATS = gga_data.num_satellites;
-       }
-   }
+    //    RTC_TimeTypeDef sTime = {0};
+    //    // Needed to unlock time registers
+    //    RTC_DateTypeDef sDate = {0};
+    //
+    //    if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
+    //    {
+    //      Error_Handler();
+    //    }
+    //
+    //    // Needed to unlock time registers
+    //    if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
+    //    {
+    //      Error_Handler();
+    //    }
 
-//    RTC_TimeTypeDef sTime = {0};
-//    // Needed to unlock time registers
-//    RTC_DateTypeDef sDate = {0};
-//
-//    if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
-//    {
-//      Error_Handler();
-//    }
-//
-//    // Needed to unlock time registers
-//    if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
-//    {
-//      Error_Handler();
-//    }
-
-	snprintf(global_mission_data.MISSION_TIME, 9, "XX:XX:XX");
-//    snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
-//             sTime.Hours, sTime.Minutes, sTime.Seconds);
+//    snprintf(global_mission_data.MISSION_TIME, 9, "XX:XX:XX");
+    //    snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
+    //             sTime.Hours, sTime.Minutes, sTime.Seconds);
 
     /*
      * Get Voltage and Current from Magnetometer
@@ -1418,8 +1417,9 @@ void StartReadSensors(void const * argument)
 
     // Relinquish access to the global_mission_data struct
 
-//    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
-    snprintf(testing_data, sizeof(testing_data), "TESTING,%f,%f", global_mission_data.TEMPERATURE, global_mission_data.PRESSURE);
+    //    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
+    snprintf(testing_data, sizeof(testing_data), "TESTING,%f,%f",
+             global_mission_data.TEMPERATURE, global_mission_data.PRESSURE);
 
     size_t testing_length = strlen(testing_data);
 
@@ -1427,160 +1427,169 @@ void StartReadSensors(void const * argument)
 
     osSemaphoreRelease(globalDataHandle);
 
-//    osDelay(100);
+    //    osDelay(100);
   }
   /* USER CODE END 5 */
 }
 
 /* USER CODE BEGIN Header_StartReadCommands */
 /**
-* @brief Function implementing the readCommands thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the readCommands thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartReadCommands */
 void StartReadCommands(void const * argument)
 {
   /* USER CODE BEGIN StartReadCommands */
-	osStatus stat = osErrorOS;
+  osStatus stat = osErrorOS;
 
-	char rx_string[25];
-    for (;;)
-    {
+  char rx_string[25];
+  for (;;) {
 
-        if (!COMMAND_READY) {
-            osThreadYield();
-            continue;
-        }
-        // do interrupts have to be enabled for this? they are in the previous project
-
-        // i honestly dk if this is peak performance tbh
-        // something tells me we could just have a char array to begin with but i would wanna
-        // wait until we can test to make changes for sure
-
-        if (xbee_receive_buffer[0] != 0x7E) {
-            COMMAND_READY = 0;
-            continue;
-        }
-
-        xbee_status_t status = xbee_decode_tx_request(&xbee_receive_buffer[0], COMMAND_SIZE, &rx_string[0], 20, NULL);
-        if (status != XBEE_OK) {
-            COMMAND_READY = 0;
-            continue;
-        }
-
-
-        stat = osSemaphoreWait(globalDataHandle, 100);
-        if (stat != osOK) {
-            osThreadYield();
-            continue; // Semaphore is either unavailable or inputs are wrong
-        }
-        HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
-
-        if (strncmp(rx_string, "CMD,1075,CX,ON", 14) == 0)
-        {
-            // set command echo in the global mission struct
-            char c_echo[] = "CXON";
-            strcpy(global_mission_data.CMD_ECHO, c_echo);
-            telemetry_enable = 1;
-        }
-        // CX OFF command -> stop transmitting telemetry packets
-        else if (strncmp(rx_string, "CMD,1075,CX,OFF", 15) == 0)
-        {
-            // set command echo
-            char c_echo[] = "CXOFF";
-            strcpy(global_mission_data.CMD_ECHO, c_echo);
-            telemetry_enable = 0;
-        }
-        // ST command -> set mission time
-        else if (strncmp(rx_string, "CMD,1075,ST,", 12) == 0)
-        {
-            // parse the timestamp to set to
-            char arg[9];
-            char *time_str = rx_string + 12;
-            strncpy(arg, time_str, 9);
-
-            // removed this code because GPS is screwed
-
-            // set command echo
-            char c_echo[] = "ST";
-            strcpy(global_mission_data.CMD_ECHO, c_echo);
-        }
-        // SIM ENABLE command -> allow simulation mode to be activated
-        else if (strncmp(rx_string, "CMD,1075,SIM,ENABLE", 19) == 0)
-        {
-            // set command echo
-            char c_echo[] = "SIMENABLE";
-            strcpy(global_mission_data.CMD_ECHO, c_echo);
-        }
-        // SIM ACTIVATE command -> turn simulation mode on
-        else if (strncmp(rx_string, "CMD,1075,SIM,ACTIVATE", 21) == 0)
-        {
-            // check that simulation mode has been activated
-            if (simulation_pre == 1)
-            {
-                // make first simulated pressure value match actual value
-                simulated_pressure = global_mission_data.PRESSURE;
-                // set command echo
-                char c_echo[] = "SIMACT";
-                strcpy(global_mission_data.CMD_ECHO, c_echo);
-            }
-        }
-        // SIM DISABLE command -> turn simulation mode off
-        else if (strncmp(rx_string, "CMD,1075,SIM,DISABLE", 20) == 0)
-        {
-            // set command echo
-            char c_echo[] = "SIMDIS";
-            strcpy(global_mission_data.CMD_ECHO, c_echo);
-        }
-        // SIMP command -> add simulated pressure data
-        else if (strncmp(rx_string, "CMD,1075,SIMP,", 14) == 0)
-        {
-            // parse inputed pressure data
-            // char *pressure_str = rx_string + 14;
-            // char *str_end;
-            long pressure_pa = atof(rx_string + 14);
-            // if (str_end == pressure_str || *str_end != '\0')
-            // it wasn't a valid number
-            // set simulated pressure to parsed value
-            simulated_pressure = pressure_pa;
-
-            // set command echo
-            char c_echo[] = "SIMP";
-            strcpy(global_mission_data.CMD_ECHO, c_echo);
-        }
-        // CAL command -> calibrate altitude
-        else if (strncmp(rx_string, "CMD,1075,CAL", 12) == 0)
-        {
-            // set command echo
-            char c_echo[] = "CAL";
-            char new_state[]= "LAUNCH_PAD";
-
-            calibrating = 1;
-            cal_sum = 0;
-            cal_count = 0;
-
-            strcpy(global_mission_data.STATE, new_state);
-            strcpy(global_mission_data.CMD_ECHO, c_echo);
-        }
-        // MEC WIRE ON command -> actuate (servos?)
-        else if (strncmp(rx_string, "CMD,1075,MEC,WIRE,ON", 20) == 0)
-        {
-        // activate MEC command
-        }
-        // MEC WIRE OFF command -> stop actuations
-        else if (strncmp(rx_string, "CMD,1075,MEC,WIRE,OFF", 21) == 0)
-        {
-        // turn off MEC command (servos for GNC?)
-        }
-
-        COMMAND_READY = 0;
-
-        osSemaphoreRelease(globalDataHandle);
-
-        // clear command buffer
-        memset(rx_string, 0, sizeof(rx_string)); // Can someone double check if this is supposed to clear the command buffer?
+    if (!COMMAND_READY) {
+      osThreadYield();
+      continue;
     }
+    // do interrupts have to be enabled for this? they are in the previous
+    // project
+
+    // i honestly dk if this is peak performance tbh
+    // something tells me we could just have a char array to begin with but i
+    // would wanna wait until we can test to make changes for sure
+
+    if (xbee_receive_buffer[0] != 0x7E) {
+      COMMAND_READY = 0;
+      continue;
+    }
+
+    xbee_status_t status = xbee_decode_tx_request(
+        &xbee_receive_buffer[0], COMMAND_SIZE, &rx_string[0], 20, NULL);
+    if (status != XBEE_OK) {
+      COMMAND_READY = 0;
+      continue;
+    }
+
+    stat = osSemaphoreWait(globalDataHandle, 100);
+    if (stat != osOK) {
+      osThreadYield();
+      continue; // Semaphore is either unavailable or inputs are wrong
+    }
+    HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+
+    if (strncmp(rx_string, "CMD,1075,CX,ON", 14) == 0) {
+      // set command echo in the global mission struct
+      char c_echo[] = "CXON";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+      global_flags.telemetry_enable = 1;
+    }
+    // CX OFF command -> stop transmitting telemetry packets
+    else if (strncmp(rx_string, "CMD,1075,CX,OFF", 15) == 0) {
+      // set command echo
+      char c_echo[] = "CXOFF";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+      global_flags.telemetry_enable = 0;
+    }
+    // ST command -> set mission time
+    else if (strncmp(rx_string, "CMD,1075,ST,", 12) == 0) {
+      // parse the timestamp to set to
+      char arg[9];
+      char *time_str = rx_string + 12;
+      strncpy(arg, time_str, 9);
+
+      // removed this code because GPS is screwed
+
+      // set command echo
+      char c_echo[] = "ST";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // SIM ENABLE command -> allow simulation mode to be activated
+    else if (strncmp(rx_string, "CMD,1075,SIM,ENABLE", 19) == 0) {
+      // set command echo
+      char c_echo[] = "SIMENABLE";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // SIM ACTIVATE command -> turn simulation mode on
+    else if (strncmp(rx_string, "CMD,1075,SIM,ACTIVATE", 21) == 0) {
+      // check that simulation mode has been activated
+      if (global_flags.simulation_pre == 1) {
+        // make first simulated pressure value match actual value
+        simulated_pressure = global_mission_data.PRESSURE;
+        // set command echo
+        char c_echo[] = "SIMACT";
+        strcpy(global_mission_data.CMD_ECHO, c_echo);
+      }
+    }
+    // SIM DISABLE command -> turn simulation mode off
+    else if (strncmp(rx_string, "CMD,1075,SIM,DISABLE", 20) == 0) {
+      // set command echo
+      char c_echo[] = "SIMDIS";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // SIMP command -> add simulated pressure data
+    else if (strncmp(rx_string, "CMD,1075,SIMP,", 14) == 0) {
+      // parse inputed pressure data
+      // char *pressure_str = rx_string + 14;
+      // char *str_end;
+      long pressure_pa = atof(rx_string + 14);
+      // if (str_end == pressure_str || *str_end != '\0')
+      // it wasn't a valid number
+      // set simulated pressure to parsed value
+      simulated_pressure = pressure_pa;
+
+      // set command echo
+      char c_echo[] = "SIMP";
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // CAL command -> calibrate altitude
+    else if (strncmp(rx_string, "CMD,1075,CAL", 12) == 0) {
+      // set command echo
+      char c_echo[] = "CAL";
+      char new_state[] = "LAUNCH_PAD";
+
+      calibrating = 1;
+      cal_sum = 0;
+      cal_count = 0;
+
+      strcpy(global_mission_data.STATE, new_state);
+      strcpy(global_mission_data.CMD_ECHO, c_echo);
+    }
+    // MEC WIRE ON command -> actuate (servos?)
+    else if (strncmp(rx_string, "CMD,1075,MEC,WIRE,ON", 20) == 0) {
+      // activate MEC command
+    }
+    // MEC WIRE OFF command -> stop actuations
+    else if (strncmp(rx_string, "CMD,1075,MEC,WIRE,OFF", 21) == 0) {
+      // turn off MEC command (servos for GNC?)
+    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO0,", 20) == 0) {
+      float angle = atof(rx_string + 20);
+      SERVO_MoveTo(SERVO_Motor0, angle);
+    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO1,", 20) == 0) {
+      float angle = atof(rx_string + 20);
+      SERVO_MoveTo(SERVO_Motor1, angle);
+    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO2,", 20) == 0) {
+      float angle = atof(rx_string + 20);
+      SERVO_MoveTo(SERVO_Motor2, angle);
+    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO3,", 20) == 0) {
+      float angle = atof(rx_string + 20);
+      SERVO_MoveTo(SERVO_Motor3, angle);
+    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO4,", 20) == 0) {
+      float angle = atof(rx_string + 20);
+      SERVO_MoveTo(SERVO_Motor4, angle);
+    } else if (strncmp(rx_string, "CMD,1075,MEC,EGG,", 17) == 0) {
+      float angle = atof(rx_string + 17);
+      SERVO_MoveTo(EGG_SERVO, angle);
+    }
+
+    COMMAND_READY = 0;
+
+    osSemaphoreRelease(globalDataHandle);
+
+    // clear command buffer
+    memset(rx_string, 0,
+           sizeof(rx_string)); // Can someone double check if this is supposed
+                               // to clear the command buffer?
+  }
   /* USER CODE END StartReadCommands */
 }
 
@@ -1594,17 +1603,18 @@ void StartReadCommands(void const * argument)
 void StartSendTelemetry(void const * argument)
 {
   /* USER CODE BEGIN StartSendTelemetry */
-	osStatus stat = osErrorOS;
+  osStatus stat = osErrorOS;
+  global_flags.telemetry_enable = 1;
   /* Infinite loop */
-  for (;;)
-  {
-    // manually defines a critical region to ensure half-packets are never transmitted
-//    taskENTER_CRITICAL();
+  for (;;) {
+    // manually defines a critical region to ensure half-packets are never
+    // transmitted
+    //    taskENTER_CRITICAL();
 
-	if (!telemetry_enable) {
-		osThreadYield();
-		continue;
-	}
+    if (!global_flags.telemetry_enable) {
+      osThreadYield();
+      continue;
+    }
 
     // create an empty buffer for the telemetry packet string
     char telemetry_string[200];
@@ -1613,59 +1623,68 @@ void StartSendTelemetry(void const * argument)
     uint16_t str_len = 0;
     // Request semaphore access
     if (osSemaphoreWait(globalDataHandle, 100) != osOK) {
-    	continue; // Until we can acquire a lock on the data, we do not want to read from it
+      continue; // Until we can acquire a lock on the data, we do not want to
+                // read from it
     }
 
-    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+//    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
     // fill the buffer with the first half of the packet
-    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%d,%d,%d,%d,%d,%d,%d,%s,%.1f,%.4f,%.4f,%d,%s",
-                      global_mission_data.TEAM_ID,      // team id (1075)
-                      global_mission_data.MISSION_TIME, // mission time
-                      global_mission_data.PACKET_COUNT, // packet count
-                      global_mission_data.MODE,         // mode
-                      global_mission_data.STATE,        // state
-                      global_mission_data.ALTITUDE,     // calibrated altitude (m)
-                      global_mission_data.TEMPERATURE,  // temperature (C)
-                      global_mission_data.PRESSURE,     // pressure (kPa)
-                      global_mission_data.VOLTAGE,      // battery voltage (V)
-					  0,
-                      global_mission_data.GYRO_R,       // gyro roll (degrees/s)
-                      global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
-                      global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
-                      global_mission_data.ACCEL_X,                 // accelerometer roll (degrees/s^2)
-                      global_mission_data.ACCEL_Y,                 // accelerometer pitch (degrees/s^2)
-                      global_mission_data.ACCEL_Z,                 // accelerometer yaw (degrees/s^2)
-                      global_mission_data.GPS_TIME,                // GPS time
-                      global_mission_data.GPS_ALTITUDE,            // GPS (absolute) altitude (m)
-                      global_mission_data.GPS_LATITUDE,            // GPS latitude
-                      global_mission_data.GPS_LONGITUDE,           // GPS longitude
-                      global_mission_data.GPS_SATS,                // # of connected GPS satellites
-                      global_mission_data.CMD_ECHO                 // tracks previously received command
+    str_len = sprintf(
+        telemetry_string,
+        "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%s,%.1f,%.4f,%.4f,%d,%s",
+        global_mission_data.TEAM_ID,      // team id (1075)
+        global_mission_data.MISSION_TIME, // mission time
+        global_mission_data.PACKET_COUNT, // packet count
+        global_mission_data.MODE,         // mode
+        global_mission_data.STATE,        // state
+        global_mission_data.ALTITUDE,     // calibrated altitude (m)
+        global_mission_data.TEMPERATURE,  // temperature (C)
+        global_mission_data.PRESSURE,     // pressure (kPa)
+        global_mission_data.VOLTAGE,      // battery voltage (V)
+        0.0,
+        global_mission_data.GYRO_R,        // gyro roll (degrees/s)
+        global_mission_data.GYRO_P,        // gyro pitch (degrees/s)
+        global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
+        global_mission_data.ACCEL_X,       // accelerometer roll (degrees/s^2)
+        global_mission_data.ACCEL_Y,       // accelerometer pitch (degrees/s^2)
+        global_mission_data.ACCEL_Z,       // accelerometer yaw (degrees/s^2)
+        global_mission_data.GPS_TIME,      // GPS time
+        global_mission_data.GPS_ALTITUDE,  // GPS (absolute) altitude (m)
+        global_mission_data.GPS_LATITUDE,  // GPS latitude
+        global_mission_data.GPS_LONGITUDE, // GPS longitude
+        global_mission_data.GPS_SATS,      // # of connected GPS satellites
+        global_mission_data.CMD_ECHO       // tracks previously received command
     );
 
     char frame[200];
     uint16_t data_len = 0;
     xbee_status_t status = xbee_send_api_packet(&telemetry_string[0], str_len, &frame[0], sizeof(frame), &data_len);
     if (status != XBEE_OK) {
-    	osSemaphoreRelease(globalDataHandle);
-    	continue;
-
+      osSemaphoreRelease(globalDataHandle);
+      continue;
     }
 
-	HAL_UART_Transmit(&huart3, frame, data_len, HAL_MAX_DELAY);
-//    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart3, frame, data_len, HAL_MAX_DELAY);
+    //    HAL_UART_Transmit(&huart3, telemetry_string, str_len,
+    //    HAL_MAX_DELAY);
 
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
 
-    // write_SD(telemetry_string, str_len, "CanSat_Data_2026.csv");
+    uint32_t result = write_SD(telemetry_string, str_len, "FSW.csv", 0);
+    if (result != FR_OK)
+    	HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
+    global_mission_data.MISSION_TIME_ms = HAL_GetTick();
+    time_to_string(global_mission_data.MISSION_TIME_ms, &global_mission_data.MISSION_TIME[0]);
+    strcpy(&global_config.MISSION_TIME[0], &global_mission_data.MISSION_TIME[0]);
+    save_config_to_sd();
     osSemaphoreRelease(globalDataHandle);
     // exit the critical region once both packets have been sent
-//    taskEXIT_CRITICAL();
+    //    taskEXIT_CRITICAL();
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-
+//    HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
 
     osDelay(1000);
   }
@@ -1684,77 +1703,88 @@ void StartGNC(void const * argument)
   /* USER CODE BEGIN StartGNC */
 
   /* Infinite loop */
-  for (;;)
-  {
+  for (;;) {
 
-//	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+    //	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
     osDelay(250);
-	  if (GPS_READY) {
+    if (GPS_READY) {
 
-		  GPS_READY = 0;
-	  }
+      GPS_READY = 0;
+    }
     osDelay(1);
 
-//    if (global_micro_sd_data.successfullyMounted) {
-//    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
-//    }
-//    else {
-//    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_RESET);
-//    }
+    //    if (global_micro_sd_data.successfullyMounted) {
+    //    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
+    //    }
+    //    else {
+    //    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin,
+    //    GPIO_PIN_RESET);
+    //    }
+
+    SERVO_Sweep(EGG_SERVO);
+
+//    SERVO_RawMove(SERVO_Motor2,)
 
     HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+    osThreadYield();
   }
   /* USER CODE END StartGNC */
 }
 
 /* USER CODE BEGIN Header_StartInit */
 /**
-* @brief Function implementing the Init thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the Init thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartInit */
 void StartInit(void const * argument)
 {
   /* USER CODE BEGIN StartInit */
-	init_SD();
+  init_SD();
 
-	if (global_micro_sd_data.successfullyMounted) {
-		uint32_t result = load_config_from_sd();
-		if (result != APP_OK) {
-			HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
-			// Set default config
-			set_default_config();
-			save_config_to_sd();
-		}
-	}
-	else {
-		HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
-		set_default_config();
-	}
+  if (global_micro_sd_data.successfullyMounted) {
+    uint32_t result = load_config_from_sd();
+    if (result != APP_OK) {
+      HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+      // Set default config
+      set_default_config();
+      save_config_to_sd();
+    }
+  } else {
+//    HAL_GPIO_WritePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin, GPIO_PIN_SET);
+    set_default_config();
+  }
+
+  // Read Config file and update accordingly
+  global_mission_data.ALTITUDE_OFFSET = global_config.ALTITUDE_OFFSET;
+  global_mission_data.PACKET_COUNT = global_config.PACKET_COUNT;
+
+  strcpy(global_mission_data.MISSION_TIME, global_config.MISSION_TIME);
+  strcpy(global_mission_data.STATE, global_config.STATE);
+
+  // This lets you see the minimum amount of the stack was remaining at any
+  // time
+  //  during a thread's execution.
+  UBaseType_t stackHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
+
+//  HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
+
+  SERVO_Init(SERVO_Motor0, &htim3);
+  SERVO_Init(SERVO_Motor1, &htim3);
+  SERVO_Init(SERVO_Motor2, &htim3);
+  SERVO_Init(SERVO_Motor3, &htim3);
+  SERVO_Init(SERVO_Motor4, &htim15);
 
 
+  HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
 
-	// Read Config file and update accordingly
-	global_mission_data.ALTITUDE_OFFSET = global_config.ALTITUDE_OFFSET;
-	global_mission_data.PACKET_COUNT	= global_config.PACKET_COUNT;
+  // Init task has nothing left to do — delete itself
+  //	osThreadTerminate(osThreadGetId());
+  vTaskDelete(NULL);
 
-	strcpy(global_mission_data.MISSION_TIME, global_config.MISSION_TIME);
-	strcpy(global_mission_data.STATE, global_config.STATE);
-
-	// This lets you see the minimum amount of the stack was remaining at any time
-	//  during a thread's execution.
-	UBaseType_t stackHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
-
-	HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
-
-
-
-	// Init task has nothing left to do — delete itself
-//	osThreadTerminate(osThreadGetId());
-	vTaskDelete(NULL);
-
-	for(;;);
+  for (;;)
+    ;
 
   /* USER CODE END StartInit */
 }
@@ -1788,10 +1818,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
+  /* User can add his own implementation to report the HAL error return state
+   */
   __disable_irq();
-  while (1)
-  {
+  while (1) {
   }
   /* USER CODE END Error_Handler_Debug */
 }
@@ -1806,8 +1836,9 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* User can add his own implementation to report the file name and line
+     number, ex: printf("Wrong parameters value: file %s on line %d\r\n",
+     file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

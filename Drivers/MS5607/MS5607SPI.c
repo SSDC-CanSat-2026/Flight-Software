@@ -389,7 +389,7 @@ void determineState(){
 	// LAUNCHPAD STATE
 	if (strcmp(global_mission_data.STATE, "LAUNCH_PAD") == 0){
 		// Replace with 2 if the units are in g. Currently in m/s^2
-		if ((global_mission_data.ACCEL_Z > 18 && global_mission_data.ALTITUDE > lower_altitude_threshold) {
+		if ((global_mission_data.ACCEL_Z > 18) && (global_mission_data.ALTITUDE > lower_altitude_threshold)) {
 			char _state[] = "ASCENT";
 			memcpy(global_mission_data.STATE, _state, sizeof(_state));
 		}
@@ -440,9 +440,9 @@ void determineState(){
 
 /* To prevent main.c from accessing variables not in main.c*/
 void calibrateAltitudeHistory(void){
-	memset(altitude_history, 0, 3);
-}
-void calibrateAltitudeHistory(void){
 	memset(altitude_history, 0, 3); // Because you cannot access altitude_history from main.c
 }
+//void calibrateAltitudeHistory(void){
+//	memset(altitude_history, 0, 3); // Because you cannot access altitude_history from main.c
+//}
 

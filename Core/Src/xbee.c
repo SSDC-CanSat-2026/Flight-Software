@@ -147,4 +147,6 @@ xbee_status_t xbee_send_api_packet(const char* packet_data, uint16_t packet_len,
 		sum += out_buf[j];
 	}
 	out_buf[i++] = 0xFF - sum;
+
+	return XBEE_OK;
 }
