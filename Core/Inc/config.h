@@ -14,6 +14,8 @@
 #include "app_fatfs.h"
 #include "global.h"
 
+#include <stdio.h>
+
 
 typedef struct {
 	char 	 MISSION_TIME[9];

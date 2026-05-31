@@ -97,16 +97,16 @@ osSemaphoreId globalDataHandle;
 /* USER CODE BEGIN PV */
 
 uint16_t Timer1, Timer2;
-uint8_t gps_dma_buffer[BUFFER_SIZE] = {0};
-uint8_t xbee_dma_buffer[BUFFER_SIZE] = {0};
-char gps_receive_buffer[BUFFER_SIZE] = {0};
-char xbee_receive_buffer[BUFFER_SIZE] = {0};
+uint8_t gps_dma_buffer[BUFFER_SIZE]   = { 0 };
+uint8_t xbee_dma_buffer[BUFFER_SIZE]  = { 0 };
+char gps_receive_buffer[BUFFER_SIZE]  = { 0 };
+char xbee_receive_buffer[BUFFER_SIZE]  = { 0 };
 
 // Flags for GPS and XBEE since they use UART DMA
-volatile uint16_t GPS_SIZE = 0;
-volatile uint8_t GPS_READY = 0;
-volatile uint16_t COMMAND_SIZE = 0;
-volatile uint8_t COMMAND_READY = 0;
+volatile uint16_t GPS_SIZE 	   	= 0;
+volatile uint8_t GPS_READY 	   	= 0;
+volatile uint16_t COMMAND_SIZE 	= 0;
+volatile uint8_t COMMAND_READY 	= 0;
 
 GGA_Data_t gga_data;
 RMC_Data_t rmc_data;
@@ -304,24 +304,17 @@ int main(void)
     __HAL_UART_CLEAR_FLAG(&huart5, UART_CLEAR_OREF);
   }
   // receive until idle, then trigger interrupt
-  HAL_UARTEx_ReceiveToIdle_DMA(
-      &huart5, gps_dma_buffer,
-      BUFFER_SIZE); // receive until idle, then trigger interrupt
-  __HAL_DMA_DISABLE_IT(huart5.hdmarx,
-                       DMA_IT_HT); // Disables "Half Transfer" interrupt
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart5, gps_dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
+  __HAL_DMA_DISABLE_IT(huart5.hdmarx, DMA_IT_HT); // Disables "Half Transfer" interrupt
 
   // USART 3
-  // Check if ORE flag is set, which can happen if data is present on UART RX
-  // line
+  // Check if ORE flag is set, which can happen if data is present on UART RX line
   if (__HAL_UART_GET_FLAG(&huart3, UART_FLAG_ORE)) {
     __HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF);
   }
   // receive until idle, then trigger interrupt
-  HAL_UARTEx_ReceiveToIdle_DMA(
-      &huart3, xbee_dma_buffer,
-      BUFFER_SIZE); // receive until idle, then trigger interrupt
-  __HAL_DMA_DISABLE_IT(huart3.hdmarx,
-                       DMA_IT_HT); // Disables "Half Transfer" interrupt
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart3, xbee_dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
+  __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT); // Disables "Half Transfer" interrupt
 
   /* USER CODE END 2 */
 
@@ -378,7 +371,8 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1) {
+  while (1)
+  {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -595,7 +589,7 @@ static void MX_I2C3_Init(void)
 
   /* USER CODE END I2C3_Init 1 */
   hi2c3.Instance = I2C3;
-  hi2c3.Init.Timing = 0x00C12166;
+  hi2c3.Init.Timing = 0x10B17DB5;
   hi2c3.Init.OwnAddress1 = 0;
   hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -1277,23 +1271,23 @@ void vApplicationTickHook(void) {
 
 // This is a call back in case a thread has a stack overflow.
 // pcTaskName is the name of the offending task
-void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName) {
-  (void)xTask;
-  (void)pcTaskName;
-  // Forces a breakpoint in the debugger
-  __BKPT(0);
-  for (;;)
-    ;
+void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
+{
+    (void)xTask;
+    (void)pcTaskName;
+    // Forces a breakpoint in the debugger
+    __BKPT(0);
+    for (;;);
 }
 
 // Incase there is an error with a Malloc somewhere
-void vApplicationMallocFailedHook(void) {
-  // Fires if pvPortMalloc fails — useful to catch heap exhaustion
+void vApplicationMallocFailedHook(void)
+{
+    // Fires if pvPortMalloc fails — useful to catch heap exhaustion
 
-  // Forces a breakpoint in the debugger
-  __BKPT(0);
-  for (;;)
-    ;
+	// Forces a breakpoint in the debugger
+    __BKPT(0);
+    for (;;);
 }
 
 /* USER CODE END 4 */
@@ -1313,14 +1307,16 @@ void StartReadSensors(void const * argument)
   osStatus stat = osErrorOS;
 
   char testing_data[200];
+  uint32_t debug_count = 0;
 
   /* Infinite loop */
-  for (;;) {
-    stat = osSemaphoreWait(globalDataHandle, 100);
-    if (stat != osOK) {
-      osThreadYield();
-      continue;
-    }
+  for (;;)
+  {
+	stat = osSemaphoreWait(globalDataHandle, 100);
+	if (stat != osOK) {
+	  osThreadYield();
+	  continue;
+	}
     // #1 PRIORITY: make sure mutex unlocks no matter what!!!!
 
     // -> if a HIGHER priority task attempts to access a locked resource,
@@ -1334,110 +1330,135 @@ void StartReadSensors(void const * argument)
      */
 
     MS5607Readings MS5607_Data = MS5607ReadValues();
-    if (global_mission_data.MODE == 'F') { // In Flight Mode
+    // TODO : This should probably just use the flag simulation_enable
+    if (simulation_enable == 1)
+    { // In Flight Mode
       global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
-    } else { // In Simulation Mode and need to read from the CSV instead.
-             // TODO
+    }
+    else
+    { // In Simulation Mode and need to read from the CSV instead.
+      // TODO
+      global_mission_data.PRESSURE = simulated_pressure;
     }
     global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
-    //    global_mission_data.ALTITUDE =
-    //    calculateAltitude(global_mission_data.PRESSURE);
-    //    determineState(global_mission_data.ALTITUDE);
+//    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
+//    determineState(global_mission_data.ALTITUDE);
 
-    if (calibrating) {
-      cal_sum += global_mission_data.PRESSURE;
-      cal_count++;
+    if(calibrating) {
+        cal_sum += global_mission_data.PRESSURE;
+        cal_count++;
 
-      if (cal_count >= 10) {
-        float pressure_avg = cal_sum / cal_count;
-        global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
+        if(cal_count >= 10) {
+            float pressure_avg = cal_sum / cal_count;
+            global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
 
-        calibrating = 0;
-        global_flags.is_calibrated = 1;
-      }
+            calibrating = 0;
+            is_calibrated = 1;
+        }
     }
 
-    ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
-    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
-    global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
-    global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+   ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+   global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
+   global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
+   global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
 
-    global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
-    global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
-    global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
+   global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
+   global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+   global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
 
-//    uint16_t voltage;
-//    BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+   global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
+   global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
+   global_mission_data.ACCEL_YAW = ICM42688P_Data.accel_yaw;
 
-    // New code
-    if (GPS_READY) {
-      // From my understanding: When the DMA interrupt occurs, we will copy the
-      // message from the DMA buffer into the gps_receive_buffer. From there, we
-      // can then pass the receive buffer with the message into parse_gga
-      int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data);
-      GPS_READY = 0;
+//   struct bmm350_mag_temp_data mag_data;
+//   BMM350_read_mag_data(&bmm350, &mag_data);
 
-      // result is 1 on success
-      if (result == 1) {
-        HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
-        global_mission_data.GPS_LATITUDE = gga_data.latitude;
-        global_mission_data.GPS_LONGITUDE = gga_data.longitude;
-        global_mission_data.GPS_ALTITUDE = gga_data.altitude;
-        global_mission_data.GPS_SATS = gga_data.num_satellites;
-      }
+    uint16_t voltage = 0;
+    HAL_StatusTypeDef status = BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+    if (status == HAL_OK) {
+        global_mission_data.VOLTAGE = (float)voltage / 1000;
     }
 
-    //    RTC_TimeTypeDef sTime = {0};
-    //    // Needed to unlock time registers
-    //    RTC_DateTypeDef sDate = {0};
-    //
-    //    if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
-    //    {
-    //      Error_Handler();
-    //    }
-    //
-    //    // Needed to unlock time registers
-    //    if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
-    //    {
-    //      Error_Handler();
-    //    }
+    int16_t current = 0;
+    status = BQ28Z610_ReadCurrent(&hi2c3, &current);
+    if (status == HAL_OK)
+    {
+    	global_mission_data.CURRENT = (float)current;
+    }
 
-//    snprintf(global_mission_data.MISSION_TIME, 9, "XX:XX:XX");
-    //    snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
-    //             sTime.Hours, sTime.Minutes, sTime.Seconds);
-
-    /*
-     * Get Voltage and Current from Magnetometer
-     */
 
     /*
      * Get GPS information from GPS
      */
+    if (GPS_READY)
+        {
+        // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
+        // into the gps_receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
+        int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data);
+        GPS_READY = 0;
 
-    // Relinquish access to the global_mission_data struct
+        //result is 1 on success
+        if (result == 1)
+        {
+//            HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+            global_mission_data.GPS_LATITUDE = gga_data.latitude;
+            global_mission_data.GPS_LONGITUDE = gga_data.longitude;
+            global_mission_data.GPS_ALTITUDE = gga_data.altitude;
+            global_mission_data.GPS_SATS = gga_data.num_satellites;
+            // TODO : TBD but we *may* want to actually have logic that lets us utilize the RMC data, just a thought - Joel
+       }
+        else if (result == 2)
+        {
+//        	rmc_data.
+			global_mission_data.GPS_LATITUDE = rmc_data.latitude;
+        	global_mission_data.GPS_LONGITUDE = rmc_data.longitude;
+//        	global_mission_data.
+        }
+   }
 
-    //    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
-    snprintf(testing_data, sizeof(testing_data), "TESTING,%f,%f",
-             global_mission_data.TEMPERATURE, global_mission_data.PRESSURE);
+//    RTC_TimeTypeDef sTime = {0};
+//    // Needed to unlock time registers
+//    RTC_DateTypeDef sDate = {0};
+//
+//    if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
+//    {
+//      Error_Handler();
+//    }
+//
+//    // Needed to unlock time registers
+//    if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
+//    {
+//      Error_Handler();
+//    }
+
+	snprintf(global_mission_data.MISSION_TIME, 9, "XX:XX:XX");
+
+// This is just some debugging statements that will be printed to the SD card (if it doesn't decide to break itself again that is)
+//    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
+    snprintf(testing_data, sizeof(testing_data), "TESTING,VOLTAGE,%d,%d", voltage, debug_count);
 
     size_t testing_length = strlen(testing_data);
 
     FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
 
+    // Relinquish access to the global_mission_data struct
     osSemaphoreRelease(globalDataHandle);
+    
+    // I added this so we could easily tell when the program restarts in the debug.csv without having to pull it and delete the file every time.
+    debug_count++;
 
-    //    osDelay(100);
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
 
 /* USER CODE BEGIN Header_StartReadCommands */
 /**
- * @brief Function implementing the readCommands thread.
- * @param argument: Not used
- * @retval None
- */
+* @brief Function implementing the readCommands thread.
+* @param argument: Not used
+* @retval None
+*/
 /* USER CODE END Header_StartReadCommands */
 void StartReadCommands(void const * argument)
 {
@@ -1623,51 +1644,49 @@ void StartSendTelemetry(void const * argument)
     uint16_t str_len = 0;
     // Request semaphore access
     if (osSemaphoreWait(globalDataHandle, 100) != osOK) {
-      continue; // Until we can acquire a lock on the data, we do not want to
-                // read from it
+    	continue; // Until we can acquire a lock on the data, we do not want to read from it
     }
 
-//    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
     // fill the buffer with the first half of the packet
-    str_len = sprintf(
-        telemetry_string,
-        "%d,%s,%ld,%c,%s,%3.1f,%.1f,%.1f,%.1f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%0.2f,%s,%.1f,%.4f,%.4f,%d,%s",
-        global_mission_data.TEAM_ID,      // team id (1075)
-        global_mission_data.MISSION_TIME, // mission time
-        global_mission_data.PACKET_COUNT, // packet count
-        global_mission_data.MODE,         // mode
-        global_mission_data.STATE,        // state
-        global_mission_data.ALTITUDE,     // calibrated altitude (m)
-        global_mission_data.TEMPERATURE,  // temperature (C)
-        global_mission_data.PRESSURE,     // pressure (kPa)
-        global_mission_data.VOLTAGE,      // battery voltage (V)
-        0.0,
-        global_mission_data.GYRO_R,        // gyro roll (degrees/s)
-        global_mission_data.GYRO_P,        // gyro pitch (degrees/s)
-        global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
-        global_mission_data.ACCEL_X,       // accelerometer roll (degrees/s^2)
-        global_mission_data.ACCEL_Y,       // accelerometer pitch (degrees/s^2)
-        global_mission_data.ACCEL_Z,       // accelerometer yaw (degrees/s^2)
-        global_mission_data.GPS_TIME,      // GPS time
-        global_mission_data.GPS_ALTITUDE,  // GPS (absolute) altitude (m)
-        global_mission_data.GPS_LATITUDE,  // GPS latitude
-        global_mission_data.GPS_LONGITUDE, // GPS longitude
-        global_mission_data.GPS_SATS,      // # of connected GPS satellites
-        global_mission_data.CMD_ECHO       // tracks previously received command
+    str_len = sprintf(telemetry_string, "%d,%s,%ld,%c,%s,%3.2f,%.2f,%.3f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%s,%.4f,%.4f,%.4f,%d,%s",
+                      global_mission_data.TEAM_ID,      // team id (1075)
+                      global_mission_data.MISSION_TIME, // mission time
+                      global_mission_data.PACKET_COUNT, // packet count
+                      global_mission_data.MODE,         // mode
+                      global_mission_data.STATE,        // state
+                      global_mission_data.ALTITUDE,     // calibrated altitude (m)
+                      global_mission_data.TEMPERATURE,  // temperature (C)
+                      global_mission_data.PRESSURE,     // pressure (kPa)
+                      global_mission_data.VOLTAGE,      // battery voltage (V)
+					  global_mission_data.CURRENT,
+                      global_mission_data.GYRO_R,       // gyro roll (degrees/s)
+                      global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
+                      global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
+                      global_mission_data.ACCEL_X,                 // accelerometer roll (degrees/s^2)   // These are just normal XYZ for testing
+                      global_mission_data.ACCEL_Y,                 // accelerometer pitch (degrees/s^2)
+                      global_mission_data.ACCEL_Z,                 // accelerometer yaw (degrees/s^2)
+                      global_mission_data.GPS_TIME,                // GPS time
+                      global_mission_data.GPS_ALTITUDE,            // GPS (absolute) altitude (m)
+                      global_mission_data.GPS_LATITUDE,            // GPS latitude
+                      global_mission_data.GPS_LONGITUDE,           // GPS longitude
+                      global_mission_data.GPS_SATS,                // # of connected GPS satellites
+                      global_mission_data.CMD_ECHO                 // tracks previously received command
     );
 
-    char frame[200];
+    char frame[200] = {0};
     uint16_t data_len = 0;
     xbee_status_t status = xbee_send_api_packet(&telemetry_string[0], str_len, &frame[0], sizeof(frame), &data_len);
     if (status != XBEE_OK) {
-      osSemaphoreRelease(globalDataHandle);
-      continue;
-    }
+    	osSemaphoreRelease(globalDataHandle);
+    	continue;
 
-    HAL_UART_Transmit(&huart3, frame, data_len, HAL_MAX_DELAY);
-    //    HAL_UART_Transmit(&huart3, telemetry_string, str_len,
-    //    HAL_MAX_DELAY);
+    }
+	HAL_UART_Transmit(&huart3, frame, data_len, HAL_MAX_DELAY);
+//    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
+
+	uint32_t bytes_written = write_SD(&telemetry_string[0], str_len, "FSW.csv", 0);
 
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
@@ -1818,10 +1837,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state
-   */
+  /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
-  while (1) {
+  while (1)
+  {
   }
   /* USER CODE END Error_Handler_Debug */
 }
@@ -1836,9 +1855,8 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line
-     number, ex: printf("Wrong parameters value: file %s on line %d\r\n",
-     file, line) */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

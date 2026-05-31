@@ -102,7 +102,7 @@
      (data & bitname##_MSK))
 
 #ifndef BMM350_INTF_RET_TYPE
-#define BMM350_INTF_RET_TYPE                        int8_t
+#define BMM350_INTF_RET_TYPE                        char
 #endif
 
 /*! Chip id of BMM350 */

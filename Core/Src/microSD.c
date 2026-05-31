@@ -11,8 +11,8 @@
 
 void check_fatfs_guards(void)
 {
-    for (uint8_t i = 0; i < 4; i++)
-    {
+//    for (uint8_t i = 0; i < 4; i++)
+//    {
 //        if (guard_before[i] != 0xDEADBEEF)
 //        {
 //            // Something before USERFatFs was overwritten
@@ -23,7 +23,7 @@ void check_fatfs_guards(void)
 //            // Something after USERFatFs was overwritten
 //            __BKPT(0);
 //        }
-    }
+//    }
 }
 
 void init_SD(void){
@@ -32,7 +32,7 @@ void init_SD(void){
 		global_micro_sd_data.successfullyMounted = 0;
 		
 
-		HardFault_Handler(); // FIXME : Obviously we don't want to trigger a hard fault here during competition.
+//		HardFault_Handler(); // FIXME : Obviously we don't want to trigger a hard fault here during competition.
 		// TODO: ADD LED DEBUGGING LIGHTS HERE FOR LED
 		return;
 	}
@@ -137,7 +137,7 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
     result = f_sync(fil);
     if (result != FR_OK) { ret = 4; goto cleanup; }
 
-    HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
+    // HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
 
 cleanup:
     if (fileIsOpen)

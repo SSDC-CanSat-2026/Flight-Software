@@ -57,8 +57,13 @@ typedef struct
 	float GYRO_P;
 	float GYRO_Y;
 
+    float ACCEL_R;
+    float ACCEL_P;
+    float ACCEL_Y;
+
+    // TODO : Before launch day, just remove these as they are not necessary
 	float ACCEL_X;
-	float ACCEL_Y;
+	float ACCEL_YAW;
 	float ACCEL_Z;
 
 	char GPS_TIME[9];
