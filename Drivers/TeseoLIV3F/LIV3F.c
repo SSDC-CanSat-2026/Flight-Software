@@ -118,6 +118,7 @@ int parse_gga(char *sentence, GGA_Data_t *out)
     out->altitude       = (fields[9][0]) ? fast_atof(fields[9]) : 0.0f;
     out->latitude       = nmea_to_decimal(fields[2], fields[3][0]);
     out->longitude      = nmea_to_decimal(fields[4], fields[5][0]);
+    time_to_string(out->time_ms, out->gps_time);
 
     return 1;
 }
@@ -185,6 +186,7 @@ int parse_rmc(char *sentence, RMC_Data_t* out) {
 //    out->mode           = fields[12];
 //    out->nav_status     = fields[13];
 
+    time_to_string(out->time_ms, out->gps_time);
     strncpy(out->date, fields[9], 6);
 
     return 2;

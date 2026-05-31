@@ -34,6 +34,10 @@ typedef struct
 	uint8_t simulation_pre;
 }Flags;
 
+extern volatile uint8_t calibrating;
+extern volatile uint8_t cal_count;
+extern volatile float 	cal_sum;
+
 // struct
 /* WATCH FOR RACE CONDITIONS */
 typedef struct

@@ -130,14 +130,15 @@ MS5607StateTypeDef MS5607_Init(SPI_HandleTypeDef *spi_handle, GPIO_TypeDef *chip
     return MS5607_STATE_READY;
 }
 
+
 /* Performs a reading on the devices PROM. */
 void MS5607PromRead(struct promData *prom)
 {
   uint8_t address;
-  uint8_t *structPointer;
+  uint16_t *structPointer;
 
   /* As the PROM is made of 8 16bit addresses I used a pointer for accessing the data structure */
-  structPointer = (uint8_t *)prom;
+  structPointer = (uint16_t *)prom;
 
   for (address = 0; address < 8; address++)
   {
@@ -145,13 +146,14 @@ void MS5607PromRead(struct promData *prom)
     enableCSB();
     HAL_SPI_Transmit(hspi, &SPITransmitData, 1, 10);
     /* Receive two bytes at once and stores it directly at the structure */
-    HAL_SPI_Receive(hspi, structPointer, 4, 10);
+    // The HAL_SPI_Receive takes a uint8_t* as the second term, this could be the cause of my issues.
+    HAL_SPI_Receive(hspi, (uint8_t*)structPointer, 2, 10);
     disableCSB();
     structPointer++;
   }
 
   /* Byte swap on 16bit integers*/
-  structPointer = (uint8_t *)prom;
+  structPointer = (uint16_t *)prom;
   for (address = 0; address < 8; address++)
   {
     uint8_t *toSwap = (uint8_t *)structPointer;
@@ -206,16 +208,28 @@ void MS5607UncompensatedRead(struct MS5607UncompensatedValues *uncompValues)
   SPITransmitData = CONVERT_D2_COMMAND | Temperature_OSR;
   HAL_SPI_Transmit(hspi, &SPITransmitData, 1, 10);
 
-  if (Temperature_OSR == 0x00)
+  // As we are using FreeRTOS these should be osDelay
+  /*if (Pressure_OSR == 0x00)
     HAL_Delay(1);
-  else if (Temperature_OSR == 0x02)
+  else if (Pressure_OSR == 0x02)
     HAL_Delay(2);
-  else if (Temperature_OSR == 0x04)
+  else if (Pressure_OSR == 0x04)
     HAL_Delay(3);
-  else if (Temperature_OSR == 0x06)
+  else if (Pressure_OSR == 0x06)
     HAL_Delay(5);
   else
-    HAL_Delay(10);
+    HAL_Delay(10);*/
+
+  if (Pressure_OSR == 0x00)
+    osDelay(1);
+  else if (Pressure_OSR == 0x02)
+    osDelay(2);
+  else if (Pressure_OSR == 0x04)
+    osDelay(3);
+  else if (Pressure_OSR == 0x06)
+    osDelay(5);
+  else
+    osDelay(10);
 
   disableCSB();
 

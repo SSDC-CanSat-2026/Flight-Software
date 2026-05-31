@@ -41,8 +41,23 @@ void init_SD(void){
 	DRESULT res = disk_ioctl(0, GET_SECTOR_SIZE, &sector_size);
 
 	global_micro_sd_data.successfullyMounted = 1;
-	char header_string[] = "TEAM_ID,MISSION_TIME,PACKET_COUNT,MODE,STATE,ALTITUDE,TEMPERATURE,PRESSURE,VOLTAGE,CURRENT,GYRO_R,GYRO_P,GYRO_Y,ACCEL_R,ACCEL_P,ACCEL_Y,GPS_TIME,GPS_ALTITUDE,GPS_LATITUDE,GPS_LONGITUDE,GPS_SATS,CMD_ECHO";
-	// write_SD(header_string, strlen(header_string), "CanSat_Data_2026.csv", (FA_WRITE | FA_CREATE_ALWAYS));
+
+  
+  // FIXME : This header writing needs to be verified - Joel
+	const char header_string[] = "TEAM_ID,MISSION_TIME,PACKET_COUNT,MODE,STATE,ALTITUDE,TEMPERATURE,PRESSURE,VOLTAGE,CURRENT,GYRO_R,GYRO_P,GYRO_Y,ACCEL_R,ACCEL_P,ACCEL_Y,GPS_TIME,GPS_ALTITUDE,GPS_LATITUDE,GPS_LONGITUDE,GPS_SATS,CMD_ECHO\n";
+
+	// Check if file exists first
+	FIL file;
+	FRESULT fr = f_open(&file, "CanSat_Data_2026.csv", FA_READ);
+	if (fr == FR_NO_FILE) {
+	    // File doesn't exist, create and write header
+	    f_close(&file);
+	    write_SD(header_string, strlen(header_string), "CanSat_Data_2026.csv", FA_WRITE | FA_CREATE_ALWAYS);
+	} else {
+	    // File exists, just close it
+	    f_close(&file);
+	}
+
 	check_fatfs_guards();
 }
 

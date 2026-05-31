@@ -28,7 +28,7 @@
 #define XBEE_START_DELIM    0x7E
 #define XBEE_FRAME_TX_REQ   0x10
 #define XBEE_FRAME_RX       0x90
-#define XBEE_MIN_PACKET_LEN 18   /* header (17) + checksum (1) */
+#define XBEE_MIN_PACKET_LEN 15   /* header (14) + checksum (1) */
 #define XBEE_HEADER_OVERHEAD 3   /* start + 2 length bytes, not counted in length field */
 
 /* Byte offsets */
