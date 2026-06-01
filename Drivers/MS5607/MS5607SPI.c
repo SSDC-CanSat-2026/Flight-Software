@@ -29,6 +29,7 @@ SOFTWARE.
  */
 
 #include "MS5607SPI.h"
+#include "cmsis_os.h"
 
 
 /* MS5607 PROM Data Structure */
