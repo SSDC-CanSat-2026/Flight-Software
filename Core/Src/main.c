@@ -31,6 +31,7 @@
 #include "../Inc/FreeRTOSConfig.h"
 #include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
 #include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
+#include "../../Drivers/BQ28Z610/BQ28Z610I2C.h"   // Voltage and Current
 #include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
 #include "../../Drivers/TeseoLIV3F/LIV3F.h"         // GPS Module
 #include "../../Drivers/SERVO/SERVO.h"      // Servos
@@ -48,6 +49,13 @@
 #define BUFFER_SIZE 		256
 #define XBEE_MAX_PAYLOAD 	80   // Safe value
 
+#define SERVO_Motor0 0
+#define SERVO_Motor1 1
+#define SERVO_Motor2 2
+#define SERVO_Motor3 3
+#define SERVO_Motor4 4
+
+#define EGG_SERVO SERVO_Motor1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -350,7 +358,7 @@ int main(void)
   readCommandsHandle = osThreadCreate(osThread(readCommands), NULL);
 
   /* definition and creation of sendTelemetry */
-  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 600);
+  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityAboveNormal, 0, 600);
   sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
 
   /* definition and creation of guideNavCtrl */
@@ -358,7 +366,7 @@ int main(void)
   guideNavCtrlHandle = osThreadCreate(osThread(guideNavCtrl), NULL);
 
   /* definition and creation of Init */
-  osThreadDef(Init, StartInit, osPriorityHigh, 0, 512);
+  osThreadDef(Init, StartInit, osPriorityRealtime, 0, 512);
   InitHandle = osThreadCreate(osThread(Init), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -1331,7 +1339,7 @@ void StartReadSensors(void const * argument)
 
     MS5607Readings MS5607_Data = MS5607ReadValues();
     // TODO : This should probably just use the flag simulation_enable
-    if (simulation_enable == 1)
+    if (global_flags.simulation_enable == 1)
     { // In Flight Mode
       global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
     }
@@ -1456,7 +1464,7 @@ void StartReadSensors(void const * argument)
 
 //    FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
 
-//    osSemaphoreRelease(globalDataHandle);
+    osSemaphoreRelease(globalDataHandle);
 
     osDelay(100);
   }
@@ -1513,7 +1521,7 @@ void StartReadCommands(void const * argument)
             // set command echo in the global mission struct
             char c_echo[] = "CXON";
             strcpy(global_mission_data.CMD_ECHO, c_echo);
-            telemetry_enable = 1;
+            global_flags.telemetry_enable = 1;
         }
         // CX OFF command -> stop transmitting telemetry packets
         else if (strncmp(rx_string, "CMD,1075,CX,OFF", 15) == 0)
@@ -1521,7 +1529,7 @@ void StartReadCommands(void const * argument)
             // set command echo
             char c_echo[] = "CXOFF";
             strcpy(global_mission_data.CMD_ECHO, c_echo);
-            telemetry_enable = 0;
+            global_flags.telemetry_enable = 0;
         }
         // ST command -> set mission time
         else if (strncmp(rx_string, "CMD,1075,ST,", 12) == 0)
@@ -1543,13 +1551,13 @@ void StartReadCommands(void const * argument)
             // set command echo
             char c_echo[] = "SIMENABLE";
             strcpy(global_mission_data.CMD_ECHO, c_echo);
-            simulation_pre = 1;
+            global_flags.simulation_pre = 1;
         }
         // SIM ACTIVATE command -> turn simulation mode on
         else if (strncmp(rx_string, "CMD,1075,SIM,ACTIVATE", 21) == 0)
         {
             // check that simulation mode has been activated
-            if (simulation_pre == 1)
+            if (global_flags.simulation_pre == 1)
             {
                 // make first simulated pressure value match actual value
                 simulated_pressure = global_mission_data.PRESSURE;
@@ -1565,7 +1573,7 @@ void StartReadCommands(void const * argument)
             // set command echo
             char c_echo[] = "SIMDIS";
             strcpy(global_mission_data.CMD_ECHO, c_echo);
-            simulation_pre = 0;
+            global_flags.simulation_pre = 0;
             memcpy(&global_mission_data.MODE, "F", 1);
         }
         // SIMP command -> add simulated pressure data
@@ -1733,7 +1741,7 @@ void StartSendTelemetry(void const * argument)
     osDelay(1000);
   }
   /* USER CODE END StartSendTelemetry */
-}+0
+}
 
 /* USER CODE BEGIN Header_StartGNC */
 /**
