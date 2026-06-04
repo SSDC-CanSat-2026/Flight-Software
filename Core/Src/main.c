@@ -1493,19 +1493,13 @@ void StartReadCommands(void const * argument)
             osThreadYield();
             continue;
         }
-        // do interrupts have to be enabled for this? they are in the previous project
 
-        // i honestly dk if this is peak performance tbh
-        // something tells me we could just have a char array to begin with but i would wanna
-        // wait until we can test to make changes for sure
 
-//        if (xbee_receive_buffer[0] != 0x7E) {
-//            COMMAND_READY = 0;
-//            continue;
-//        }
-
+        // The point of this loop is to find the start delimeter in the DMA buffer.
+        // The DMA system will occasionally start with garbage data, this ensures
+        //   that it doesn't drop a message for something as stupid as that.
         uint8_t offset = 0;
-        for (; offset < 100; offset++) {
+        for (; offset < 50; offset++) {
        		if (xbee_receive_buffer[offset] == 0x7E) {
         		break;
         	}
