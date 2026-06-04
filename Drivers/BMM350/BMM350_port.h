@@ -2,6 +2,7 @@
 #define _BMM350_PORT_
 
 #include "bmm350.h"
+#include "bmm350_defs.h"
 #include "stm32g4xx_hal.h"
 
 

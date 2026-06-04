@@ -29,13 +29,17 @@
 #include "../Inc/xbee.h"
 #include "../Inc/microSD.h"
 #include "../Inc/FreeRTOSConfig.h"
-#include "../../Drivers/MS5607/MS5607SPI.h"       // Pressure and Temperature Sensor
-#include "../../Drivers/ICM42688P/ICM42688PSPI.h" // Accelerometer and Gyro Sensor
-#include "../../Drivers/BQ28Z610/BQ28Z610I2C.h"   // Voltage and Current
-#include "../../Drivers/STUSB4500LBJR/USB_port.h" // USB PD controller
+#include "../../Drivers/MS5607/MS5607SPI.h"       	// Pressure and Temperature Sensor
+#include "../../Drivers/ICM42688P/ICM42688PSPI.h" 	// Accelerometer and Gyro Sensor
+#include "../../Drivers/BQ28Z610/BQ28Z610I2C.h"   	// Voltage and Current
+#include "../../Drivers/STUSB4500LBJR/USB_port.h" 	// USB PD controller
 #include "../../Drivers/TeseoLIV3F/LIV3F.h"         // GPS Module
-#include "../../Drivers/SERVO/SERVO.h"      // Servos
+#include "../../Drivers/BMM350/BMM350_port.h"		// Magnetometer
+#include "../../Drivers/SERVO/SERVO.h"      		// Servos
 #include "../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h"
+
+#include <math.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -111,6 +115,9 @@ volatile uint8_t COMMAND_READY 	= 0;
 
 GGA_Data_t gga_data;
 RMC_Data_t rmc_data;
+
+struct bmm350_dev BMM350;
+struct bmm350_mag_temp_data mag_data;
 
 /* USER CODE END PV */
 
@@ -1373,7 +1380,7 @@ void StartReadSensors(void const * argument)
 
    global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
    global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
-   global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
+   global_mission_data.ACCEL_Z= ICM42688P_Data.accel_z;
 
    global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
    global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
@@ -1427,32 +1434,13 @@ void StartReadSensors(void const * argument)
        }
    }
 
-//    RTC_TimeTypeDef sTime = {0};
-//    // Needed to unlock time registers
-//    RTC_DateTypeDef sDate = {0};
-//
-//    if (HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
-//    {
-//      Error_Handler();
-//    }
-//
-//    // Needed to unlock time registers
-//    if (HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
-//    {
-//      Error_Handler();
-//    }
 
-//	snprintf(global_mission_data.MISSION_TIME, 9, "XX:XX:XX");
-//    snprintf(global_mission_data.MISSION_TIME, 9, "%02d:%02d:%02d",
-//             sTime.Hours, sTime.Minutes, sTime.Seconds);
+   BMM350_INTF_RET_TYPE bmm_result = BMM350_read_mag_data(&BMM350, &mag_data);
 
-    /*
-     * Get Voltage and Current from Magnetometer
-     */
+   float theta_mag = atan2f(mag_data.y, mag_data.x);
+   float theta_declination = -9.53;
+   float theta_true = theta_mag + theta_declination;
 
-    /*
-     * Get GPS information from GPS
-     */
 
     // Relinquish access to the global_mission_data struct
 
@@ -1792,6 +1780,9 @@ void StartGNC(void const * argument)
 /* USER CODE END Header_StartInit */
 void StartInit(void const * argument)
 {
+	// Initialize the BMM350 magnetometer
+	BMM350_INTF_RET_TYPE result = BMM350_init(&BMM350, &hi2c3);
+
   /* USER CODE BEGIN StartInit */
   init_SD();
 

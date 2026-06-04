@@ -305,7 +305,7 @@ int8_t bmm350_get_regs(uint8_t reg_addr, uint8_t *reg_data, uint16_t len, struct
     uint16_t temp_len = len + BMM350_DUMMY_BYTES;
 
     /* Variable to define temporary buffer */
-    uint8_t temp_buf[BMM350_READ_BUFFER_LENGTH];
+    uint8_t temp_buf[BMM350_READ_BUFFER_LENGTH] = {0};
 
     /* Variable to define loop */
     uint16_t index = 0;

@@ -77,19 +77,19 @@ BMM350_INTF_RET_TYPE BMM350_init(struct bmm350_dev* bmm350, I2C_HandleTypeDef* I
 
     int8_t result = bmm350_init(bmm350);
 
-//    result = bmm350_set_powermode(BMM350_NORMAL_MODE, &bmm350);
-//    result = bmm350_configure_interrupt(BMM350_PULSED,
-//                                      BMM350_ACTIVE_HIGH,
-//                                      BMM350_INTR_PUSH_PULL,
-//                                      BMM350_UNMAP_FROM_PIN,
-//                                      &bmm350);
-//
-//
-//    result = bmm350_enable_interrupt(BMM350_ENABLE_INTERRUPT, &bmm350);
-//
-//    result = bmm350_set_odr_performance(BMM350_DATA_RATE_25HZ, BMM350_AVERAGING_8, &bmm350);
-//
-//    result = bmm350_enable_axes(BMM350_X_EN, BMM350_Y_EN, BMM350_Z_EN, &bmm350);
+    result = bmm350_set_powermode(BMM350_NORMAL_MODE, bmm350);
+    result = bmm350_configure_interrupt(BMM350_PULSED,
+                                      BMM350_ACTIVE_HIGH,
+                                      BMM350_INTR_PUSH_PULL,
+                                      BMM350_UNMAP_FROM_PIN,
+                                      bmm350);
+
+
+    result = bmm350_enable_interrupt(BMM350_ENABLE_INTERRUPT, bmm350);
+
+    result = bmm350_set_odr_performance(BMM350_DATA_RATE_25HZ, BMM350_AVERAGING_8, bmm350);
+
+    result = bmm350_enable_axes(BMM350_X_EN, BMM350_Y_EN, BMM350_Z_EN, bmm350);
 
     return result;
 //    return 0;
