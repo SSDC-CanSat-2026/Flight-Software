@@ -18,7 +18,7 @@ typedef struct ICM42688P_AccelData
 {
     // These are the traditional "linear" accelerations
     float accel_x;
-    float accel_yaw;
+    float accel_y;
     float accel_z;
 
     // Normal gyroscope values
@@ -38,7 +38,7 @@ typedef struct ICM42688P_AccelData
     //   should still have the necessary logic
     float accel_r;
     float accel_p;
-    float accel_y;
+    float accel_yaw;
 } ICM42688P_AccelData;
 
 int16_t ICM42688P_read_reg(uint8_t reg);

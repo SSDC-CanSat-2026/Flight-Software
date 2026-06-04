@@ -96,7 +96,7 @@ void ICM42688P_read_data(ICM42688P_AccelData *data)
 {
 	// Traditional "linear" accelerations
     data->accel_x 	= (float)ICM42688P_read_reg(0x1F) / ACCEL_FS_SEL_0;
-    data->accel_yaw = (float)ICM42688P_read_reg(0x21) / ACCEL_FS_SEL_0;
+    data->accel_y = (float)ICM42688P_read_reg(0x21) / ACCEL_FS_SEL_0;
     data->accel_z 	= (float)ICM42688P_read_reg(0x23) / ACCEL_FS_SEL_0;
 
     data->gyro_p = (float)ICM42688P_read_reg(0x25) / GYRO_FS_SEL_0;
@@ -107,7 +107,7 @@ void ICM42688P_read_data(ICM42688P_AccelData *data)
 
     // Calculating acceleration
     data->accel_p 	= (data->gyro_p - data->gyro_old_p) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ);
-    data->accel_y 	= (data->gyro_y - data->gyro_old_y) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ);
+    data->accel_yaw 	= (data->gyro_y - data->gyro_old_y) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ);
     data->accel_r 	= -((data->gyro_r - data->gyro_old_r) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ));
 
     data->gyro_old_p = data->gyro_p;
