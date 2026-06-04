@@ -1540,6 +1540,28 @@ void StartReadCommands(void const * argument)
             strncpy(arg, time_str, 9);
 
             // removed this code because GPS is screwed
+            // if a manual timestamp has been input...
+            if (strlen(arg) == 8)
+            {
+            	// set mission time
+                char *str_end;
+                strncpy(global_mission_data.MISSION_TIME, time_str, 9);
+                // Set a flag telling us to update the RTC
+                update_time = 1;
+                // stop reading time from GPS
+                gps_time_enable = 0;
+            }
+            // read time from GPS
+            else if (strncmp(time_str, "GPS", 3))
+            {
+                 gps_time_enable = 1;
+            }
+            else
+            {
+            // if the string is not 8 characters long, set it to "00:00:00"
+                strcpy(global_mission_data.MISSION_TIME, "00:00:00");
+                gps_time_enable = 0;
+            }
 
             // set command echo
             char c_echo[] = "ST";
