@@ -1338,15 +1338,15 @@ void StartReadSensors(void const * argument)
 
     MS5607Readings MS5607_Data = MS5607ReadValues();
     // TODO : This should probably just use the flag simulation_enable
-    if (global_flags.simulation_enable == 0)
+    if (global_mission_data.MODE == 'F')
     { // In Flight Mode
       global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
     }
     else
-    { // In Simulation Mode and need to read from the CSV instead.
-      // TODO
-      global_mission_data.PRESSURE = simulated_pressure;
+    { // In Simulation Mode
+     global_mission_data.PRESSURE = simulated_pressure;
     }
+
     global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
 
     global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE) - global_mission_data.ALTITUDE_OFFSET;
@@ -1574,6 +1574,10 @@ void StartReadCommands(void const * argument)
                 strcpy(global_mission_data.CMD_ECHO, c_echo);
                 memcpy(&global_mission_data.MODE, "S", 1);
             }
+            else{
+            	char c_echo[] = "SIMACT_REJ";
+                strcpy(global_mission_data.CMD_ECHO, c_echo);
+            }
         }
         // SIM DISABLE command -> turn simulation mode off
         else if (strncmp(rx_string, "CMD,1075,SIM,DISABLE", 20) == 0)
@@ -1590,11 +1594,11 @@ void StartReadCommands(void const * argument)
             // parse inputed pressure data
             // char *pressure_str = rx_string + 14;
             // char *str_end;
-            long pressure_pa = atof(rx_string + 14);
+        	simulated_pressure = atof(rx_string + 14) / 1000.0;
             // if (str_end == pressure_str || *str_end != '\0')
             // it wasn't a valid number
             // set simulated pressure to parsed value
-            simulated_pressure = pressure_pa;
+
 
             // set command echo
             char c_echo[] = "SIMP";
