@@ -8,11 +8,6 @@ static SPI_HandleTypeDef *hspi;
 static GPIO_TypeDef *ChipSelect_GPIO_Port;
 static uint16_t ChipSelect_Pin;
 
-volatile static int16_t gyro_old_r = 0;
-volatile static int16_t gyro_old_y = 0;
-volatile static int16_t gyro_old_p = 0;
-volatile static uint32_t old_time = 0;
-
 #define ACCEL_FS_SEL_0 2048
 #define GYRO_FS_SEL_0 16.4
 
@@ -82,43 +77,41 @@ uint8_t ICM42688P_init(SPI_HandleTypeDef *spi_handle, GPIO_TypeDef *chip_select_
     return 0;
 }
 
-int16_t Get_Accel_P(int16_t gyro_p, uint32_t time)
+/*int16_t Get_Accel_P(int16_t gyro_p, TickType_t time)
 {
-    return (gyro_old_p - gyro_p); // add timer later / (old_time - time);
+    return (gyro_old_p - gyro_p) / ((xTaskGetTickCount() - old_time) / configTICK_RATE_HZ); // configTICK_RATE_HZ is in FreeRTOSConfig.h
 }
 
-int16_t Get_Accel_Y(int16_t gyro_y, uint32_t time)
+int16_t Get_Accel_Y(int16_t gyro_y, TickType_t time)
 {
-    return (gyro_old_y - gyro_y); // add timer later / (old_time - time);
+    return (gyro_old_y - gyro_y) / ((xTaskGetTickCount() - old_time) / configTICK_RATE_HZ);
 }
 
-int16_t Get_Accel_R(int16_t gyro_r, uint32_t time)
+int16_t Get_Accel_R(int16_t gyro_r, TickType_t time)
 {
-    return (gyro_old_r - gyro_r); // add timer later / (old_time - time);
-}
+    return (gyro_old_r - gyro_r) / ((xTaskGetTickCount() - old_time) / configTICK_RATE_HZ);
+}*/
 
-ICM42688P_AccelData ICM42688P_read_data()
+void ICM42688P_read_data(ICM42688P_AccelData *data)
 {
-	ICM42688P_AccelData data = {0};
+	// Traditional "linear" accelerations
+    data->accel_x 	= (float)ICM42688P_read_reg(0x1F) / ACCEL_FS_SEL_0;
+    data->accel_yaw = (float)ICM42688P_read_reg(0x21) / ACCEL_FS_SEL_0;
+    data->accel_z 	= (float)ICM42688P_read_reg(0x23) / ACCEL_FS_SEL_0;
 
-    data.accel_x = (float)ICM42688P_read_reg(0x1F) / ACCEL_FS_SEL_0;
-    data.accel_y = (float)ICM42688P_read_reg(0x21) / ACCEL_FS_SEL_0;
-    data.accel_z = (float)ICM42688P_read_reg(0x23) / ACCEL_FS_SEL_0;
+    data->gyro_p = (float)ICM42688P_read_reg(0x25) / GYRO_FS_SEL_0;
+    data->gyro_y = (float)ICM42688P_read_reg(0x27) / GYRO_FS_SEL_0;
+    data->gyro_r = (float)ICM42688P_read_reg(0x29) / GYRO_FS_SEL_0;
 
-    data.gyro_p = (float)ICM42688P_read_reg(0x25) / GYRO_FS_SEL_0;
-    data.gyro_y = (float)ICM42688P_read_reg(0x27) / GYRO_FS_SEL_0;
-    data.gyro_r = (float)ICM42688P_read_reg(0x29) / GYRO_FS_SEL_0;
+    TickType_t curr_time = xTaskGetTickCount();
 
-    uint32_t time = 0;
+    // Calculating acceleration
+    data->accel_p 	= (data->gyro_old_p - data->gyro_p) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ);
+    data->accel_y 	= (data->gyro_old_y - data->gyro_y) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ);
+    data->accel_r 	= -((data->gyro_old_r - data->gyro_r) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ));
 
-    data.accel_p = Get_Accel_P(data.gyro_p, time);
-    data.accel_yaw = Get_Accel_Y(data.gyro_y, time);
-    data.accel_r = -Get_Accel_R(data.gyro_r, time);
-
-//    gyro_old_p = data.gyro_p;
-//    gyro_old_y = data.gyro_y;
-//    gyro_old_r = data.gyro_r;
-//    old_time = time;
-
-    return data;
+    data->gyro_old_p = data->gyro_p;
+    data->gyro_old_y = data->gyro_y;
+    data->gyro_old_r = data->gyro_r;
+    data->old_time_tick = curr_time;
 }
