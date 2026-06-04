@@ -1698,7 +1698,7 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
                       global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
-                      global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)   // These are just normal XYZ for testing
+                      global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)
                       global_mission_data.ACCEL_P,                 // accelerometer pitch (degrees/s^2)
                       global_mission_data.ACCEL_YAW,                 // accelerometer yaw (degrees/s^2)
                       global_mission_data.GPS_TIME,                // GPS time
