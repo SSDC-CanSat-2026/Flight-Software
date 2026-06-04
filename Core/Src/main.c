@@ -112,6 +112,8 @@ volatile uint8_t COMMAND_READY 	= 0;
 GGA_Data_t gga_data;
 RMC_Data_t rmc_data;
 
+ICM42688P_AccelData ICM42688P_Data = {0};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -228,7 +230,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  init_mission_data();
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -265,7 +266,6 @@ int main(void)
   HAL_GPIO_WritePin(IMU_nCS_GPIO_Port, IMU_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(BMP_nCS_GPIO_Port, BMP_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(SD_nCS_GPIO_Port, SD_nCS_Pin, GPIO_PIN_SET);
-
 
   // Hold GPS in reset (LOW)
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
@@ -1339,7 +1339,7 @@ void StartReadSensors(void const * argument)
 
     MS5607Readings MS5607_Data = MS5607ReadValues();
     // TODO : This should probably just use the flag simulation_enable
-    if (global_flags.simulation_enable == 1)
+    if (global_flags.simulation_enable == 0)
     { // In Flight Mode
       global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
     }
@@ -1366,7 +1366,8 @@ void StartReadSensors(void const * argument)
         }
     }
 
-   ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+   // ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+   ICM42688P_read_data(&ICM42688P_Data);
    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
    global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
    global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
@@ -1719,9 +1720,9 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
                       global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
-                      global_mission_data.ACCEL_X,                 // accelerometer roll (degrees/s^2)   // These are just normal XYZ for testing
-                      global_mission_data.ACCEL_Y,                 // accelerometer pitch (degrees/s^2)
-                      global_mission_data.ACCEL_Z,                 // accelerometer yaw (degrees/s^2)
+                      global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)
+                      global_mission_data.ACCEL_P,                 // accelerometer pitch (degrees/s^2)
+                      global_mission_data.ACCEL_YAW,                 // accelerometer yaw (degrees/s^2)
                       global_mission_data.GPS_TIME,                // GPS time
                       global_mission_data.GPS_ALTITUDE,            // GPS (absolute) altitude (m)
                       global_mission_data.GPS_LATITUDE,            // GPS latitude
