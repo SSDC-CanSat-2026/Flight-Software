@@ -163,7 +163,6 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
 
     HAL_UARTEx_ReceiveToIdle_DMA(huart, gps_dma_buffer, BUFFER_SIZE);
     __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
-
   }
 
   else if (huart->Instance == USART3)
@@ -181,13 +180,13 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
     	__HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF);
     }
 
-    HAL_UARTEx_ReceiveToIdle_DMA(huart, xbee_dma_buffer, BUFFER_SIZE);
+    HAL_UARTEx_ReceiveToIdle_DMA(huart, xbee_dma_buffer, sizeof(xbee_dma_buffer));
     __HAL_DMA_DISABLE_IT(huart->hdmarx, DMA_IT_HT);
   }
   else
   {
     // FIXME : Change this for a DBG LED in the new code
-	  HAL_GPIO_WritePin(USR_LED_GPIO_Port, USR_LED_Pin, GPIO_PIN_RESET);
+	  HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
   }
 }
 
@@ -322,7 +321,7 @@ int main(void)
     __HAL_UART_CLEAR_FLAG(&huart3, UART_CLEAR_OREF);
   }
   // receive until idle, then trigger interrupt
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart3, xbee_dma_buffer, BUFFER_SIZE); // receive until idle, then trigger interrupt
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart3, xbee_dma_buffer, sizeof(xbee_dma_buffer)); // receive until idle, then trigger interrupt
   __HAL_DMA_DISABLE_IT(huart3.hdmarx, DMA_IT_HT); // Disables "Half Transfer" interrupt
 
   /* USER CODE END 2 */
@@ -358,7 +357,7 @@ int main(void)
   readCommandsHandle = osThreadCreate(osThread(readCommands), NULL);
 
   /* definition and creation of sendTelemetry */
-  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityAboveNormal, 0, 600);
+  osThreadDef(sendTelemetry, StartSendTelemetry, osPriorityNormal, 0, 600);
   sendTelemetryHandle = osThreadCreate(osThread(sendTelemetry), NULL);
 
   /* definition and creation of guideNavCtrl */
@@ -1339,7 +1338,7 @@ void StartReadSensors(void const * argument)
 
     MS5607Readings MS5607_Data = MS5607ReadValues();
     // TODO : This should probably just use the flag simulation_enable
-    if (global_flags.simulation_enable == 1)
+    if (global_flags.simulation_enable == 0)
     { // In Flight Mode
       global_mission_data.PRESSURE = MS5607_Data.pressure_kPa;
     }
@@ -1349,6 +1348,8 @@ void StartReadSensors(void const * argument)
       global_mission_data.PRESSURE = simulated_pressure;
     }
     global_mission_data.TEMPERATURE = MS5607_Data.temperature_C;
+
+    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE) - global_mission_data.ALTITUDE_OFFSET;
 
 //    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
 //    determineState(global_mission_data.ALTITUDE);
@@ -1497,12 +1498,19 @@ void StartReadCommands(void const * argument)
         // something tells me we could just have a char array to begin with but i would wanna
         // wait until we can test to make changes for sure
 
-        if (xbee_receive_buffer[0] != 0x7E) {
-            COMMAND_READY = 0;
-            continue;
+//        if (xbee_receive_buffer[0] != 0x7E) {
+//            COMMAND_READY = 0;
+//            continue;
+//        }
+
+        uint8_t offset = 0;
+        for (; offset < 100; offset++) {
+       		if (xbee_receive_buffer[offset] == 0x7E) {
+        		break;
+        	}
         }
 
-        xbee_status_t status = xbee_decode_tx_request(&xbee_receive_buffer[0], COMMAND_SIZE, &rx_string[0], sizeof(rx_string), NULL);
+        xbee_status_t status = xbee_decode_tx_request(&xbee_receive_buffer[offset], (COMMAND_SIZE-offset), &rx_string[0], sizeof(rx_string), NULL);
         if (status != XBEE_OK) {
             COMMAND_READY = 0;
             continue;
@@ -1615,25 +1623,43 @@ void StartReadCommands(void const * argument)
         else if (strncmp(rx_string, "CMD,1075,MEC,WIRE,OFF", 21) == 0)
         {
         // turn off MEC command (servos for GNC?)
-        }  else if (strncmp(rx_string, "CMD,1075,MEC,SERVO0,", 20) == 0) {
-      float angle = atof(rx_string + 20);
-      SERVO_MoveTo(SERVO_Motor0, angle);
-    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO1,", 20) == 0) {
-      float angle = atof(rx_string + 20);
-      SERVO_MoveTo(SERVO_Motor1, angle);
-    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO2,", 20) == 0) {
-      float angle = atof(rx_string + 20);
-      SERVO_MoveTo(SERVO_Motor2, angle);
-    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO3,", 20) == 0) {
-      float angle = atof(rx_string + 20);
-      SERVO_MoveTo(SERVO_Motor3, angle);
-    } else if (strncmp(rx_string, "CMD,1075,MEC,SERVO4,", 20) == 0) {
-      float angle = atof(rx_string + 20);
-      SERVO_MoveTo(SERVO_Motor4, angle);
-    } else if (strncmp(rx_string, "CMD,1075,MEC,EGG,", 17) == 0) {
-      float angle = atof(rx_string + 17);
-      SERVO_MoveTo(EGG_SERVO, angle);
-    }
+        }
+		// Servo #0
+        else if (strncmp(rx_string, "CMD,1075,MEC,SERVO0,", 20) == 0)
+		{
+		  float angle = atof(rx_string + 20);
+		  SERVO_MoveTo(SERVO_Motor0, angle);
+		}
+		// Servo #1
+        else if (strncmp(rx_string, "CMD,1075,MEC,SERVO1,", 20) == 0)
+		{
+		  float angle = atof(rx_string + 20);
+		  SERVO_MoveTo(SERVO_Motor1, angle);
+		}
+		// Servo #2
+        else if (strncmp(rx_string, "CMD,1075,MEC,SERVO2,", 20) == 0)
+		{
+		  float angle = atof(rx_string + 20);
+		  SERVO_MoveTo(SERVO_Motor2, angle);
+		}
+		// Servo #3
+        else if (strncmp(rx_string, "CMD,1075,MEC,SERVO3,", 20) == 0)
+		{
+		  float angle = atof(rx_string + 20);
+		  SERVO_MoveTo(SERVO_Motor3, angle);
+		}
+		// Servo #4
+        else if (strncmp(rx_string, "CMD,1075,MEC,SERVO4,", 20) == 0)
+		{
+		  float angle = atof(rx_string + 20);
+		  SERVO_MoveTo(SERVO_Motor4, angle);
+		}
+		// Servo #5
+        else if (strncmp(rx_string, "CMD,1075,MEC,EGG,", 17) == 0)
+		{
+		  float angle = atof(rx_string + 17);
+		  SERVO_MoveTo(EGG_SERVO, angle);
+		}
 
         COMMAND_READY = 0;
 
@@ -1642,7 +1668,7 @@ void StartReadCommands(void const * argument)
         // clear command buffer
         memset(rx_string, 0, sizeof(rx_string)); // Can someone double check if this is supposed to clear the command buffer?
         memset(xbee_receive_buffer, 0, sizeof(xbee_receive_buffer));
-        osDelay(100);
+        osDelay(10);
     }
   /* USER CODE END StartReadCommands */
 }
@@ -1658,7 +1684,7 @@ void StartSendTelemetry(void const * argument)
 {
   /* USER CODE BEGIN StartSendTelemetry */
   osStatus stat = osErrorOS;
-  global_flags.telemetry_enable = 1;
+//  global_flags.telemetry_enable = 1;
   /* Infinite loop */
   for (;;) {
     // manually defines a critical region to ensure half-packets are never
