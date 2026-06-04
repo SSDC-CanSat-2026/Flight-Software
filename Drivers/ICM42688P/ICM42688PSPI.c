@@ -106,9 +106,9 @@ void ICM42688P_read_data(ICM42688P_AccelData *data)
     TickType_t curr_time = xTaskGetTickCount();
 
     // Calculating acceleration
-    data->accel_p 	= (data->gyro_old_p - data->gyro_p) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ);
-    data->accel_y 	= (data->gyro_old_y - data->gyro_y) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ);
-    data->accel_r 	= -((data->gyro_old_r - data->gyro_r) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ));
+    data->accel_p 	= (data->gyro_p - data->gyro_old_p) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ);
+    data->accel_y 	= (data->gyro_y - data->gyro_old_y) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ);
+    data->accel_r 	= -((data->gyro_r - data->gyro_old_r) / ((curr_time - data->old_time_tick) / configTICK_RATE_HZ));
 
     data->gyro_old_p = data->gyro_p;
     data->gyro_old_y = data->gyro_y;
