@@ -104,10 +104,11 @@ char gps_receive_buffer[BUFFER_SIZE]  = { 0 };
 char xbee_receive_buffer[BUFFER_SIZE]  = { 0 };
 
 // Flags for GPS and XBEE since they use UART DMA
-volatile uint16_t GPS_SIZE 	   	= 0;
-volatile uint8_t GPS_READY 	   	= 0;
-volatile uint16_t COMMAND_SIZE 	= 0;
-volatile uint8_t COMMAND_READY 	= 0;
+volatile uint16_t GPS_SIZE 	   		= 0;
+volatile uint8_t GPS_READY 	   		= 0;
+volatile uint16_t COMMAND_SIZE 		= 0;
+volatile uint8_t COMMAND_READY 		= 0;
+volatile uint8_t GPS_TIME_ENABLE 	= 1;
 
 GGA_Data_t gga_data;
 RMC_Data_t rmc_data;
@@ -1548,20 +1549,20 @@ void StartReadCommands(void const * argument)
                 char *str_end;
                 strncpy(global_mission_data.MISSION_TIME, time_str, 9);
                 // Set a flag telling us to update the RTC
-                update_time = 1;
+                // update_time = 1;
                 // stop reading time from GPS
-                gps_time_enable = 0;
+                GPS_TIME_ENABLE = 0;
             }
             // read time from GPS
             else if (strncmp(time_str, "GPS", 3))
             {
-                 gps_time_enable = 1;
+                 GPS_TIME_ENABLE = 1;
             }
             else
             {
             // if the string is not 8 characters long, set it to "00:00:00"
                 strcpy(global_mission_data.MISSION_TIME, "00:00:00");
-                gps_time_enable = 0;
+                GPS_TIME_ENABLE = 0;
             }
 
             // set command echo
@@ -1750,6 +1751,11 @@ void StartSendTelemetry(void const * argument)
     uint32_t result = write_SD(telemetry_string, str_len, "FSW.csv", 0);
     if (result != FR_OK)
     	HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+
+    // TODO: We need an if statement about where we are getting the time from.
+    // 1. First determine if we need to update the time so we do not add the HAL_GetTick. Else add the Tick offset.
+    // 			We definitely need some extra functions to calculate how much Tick offset if needed.
+    // 2. If we do update the time, do we use the UTC value given or the GPS?
 
     global_mission_data.MISSION_TIME_ms = HAL_GetTick();
     time_to_string(global_mission_data.MISSION_TIME_ms, &global_mission_data.MISSION_TIME[0]);
