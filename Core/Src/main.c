@@ -112,6 +112,8 @@ volatile uint8_t COMMAND_READY 	= 0;
 GGA_Data_t gga_data;
 RMC_Data_t rmc_data;
 
+ICM42688P_AccelData ICM42688P_Data = {0};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -227,7 +229,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  init_mission_data();
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -264,7 +265,6 @@ int main(void)
   HAL_GPIO_WritePin(IMU_nCS_GPIO_Port, IMU_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(BMP_nCS_GPIO_Port, BMP_nCS_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(SD_nCS_GPIO_Port, SD_nCS_Pin, GPIO_PIN_SET);
-
 
   // Hold GPS in reset (LOW)
   HAL_GPIO_WritePin(GPS_RST_GPIO_Port, GPS_RST_Pin, GPIO_PIN_RESET);
@@ -1367,7 +1367,8 @@ void StartReadSensors(void const * argument)
         }
     }
 
-   ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+   // ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+   ICM42688P_read_data(&ICM42688P_Data);
    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
    global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
    global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
@@ -1548,6 +1549,28 @@ void StartReadCommands(void const * argument)
             strncpy(arg, time_str, 9);
 
             // removed this code because GPS is screwed
+            // if a manual timestamp has been input...
+            if (strlen(arg) == 8)
+            {
+            	// set mission time
+                char *str_end;
+                strncpy(global_mission_data.MISSION_TIME, time_str, 9);
+                // Set a flag telling us to update the RTC
+                update_time = 1;
+                // stop reading time from GPS
+                gps_time_enable = 0;
+            }
+            // read time from GPS
+            else if (strncmp(time_str, "GPS", 3))
+            {
+                 gps_time_enable = 1;
+            }
+            else
+            {
+            // if the string is not 8 characters long, set it to "00:00:00"
+                strcpy(global_mission_data.MISSION_TIME, "00:00:00");
+                gps_time_enable = 0;
+            }
 
             // set command echo
             char c_echo[] = "ST";
@@ -1727,9 +1750,9 @@ void StartSendTelemetry(void const * argument)
                       global_mission_data.GYRO_R,       // gyro roll (degrees/s)
                       global_mission_data.GYRO_P,       // gyro pitch (degrees/s)
                       global_mission_data.GYRO_Y,        // gyro yaw (degrees/s)
-                      global_mission_data.ACCEL_X,                 // accelerometer roll (degrees/s^2)   // These are just normal XYZ for testing
-                      global_mission_data.ACCEL_Y,                 // accelerometer pitch (degrees/s^2)
-                      global_mission_data.ACCEL_Z,                 // accelerometer yaw (degrees/s^2)
+                      global_mission_data.ACCEL_R,                 // accelerometer roll (degrees/s^2)
+                      global_mission_data.ACCEL_P,                 // accelerometer pitch (degrees/s^2)
+                      global_mission_data.ACCEL_YAW,                 // accelerometer yaw (degrees/s^2)
                       global_mission_data.GPS_TIME,                // GPS time
                       global_mission_data.GPS_ALTITUDE,            // GPS (absolute) altitude (m)
                       global_mission_data.GPS_LATITUDE,            // GPS latitude
