@@ -1545,7 +1545,7 @@ void StartReadCommands(void const * argument)
             	// set mission time
                 char *str_end;
                 strncpy(global_mission_data.MISSION_TIME, time_str, 9);
-                string_to_time(global_mission_data.MISSION_TIME, global_mission_data.MISSION_TIME_ms);
+                string_to_time(&global_mission_data.MISSION_TIME, &global_mission_data.MISSION_TIME_ms);
             }
             // read time from GPS
             else if (strncmp(time_str, "GPS", 3))
@@ -1556,7 +1556,7 @@ void StartReadCommands(void const * argument)
             {
             // if the string is not 8 characters long, set it to "00:00:00"
             	strcpy(global_mission_data.MISSION_TIME, "00:00:00");
-                string_to_time(global_mission_data.MISSION_TIME, global_mission_data.MISSION_TIME_ms);
+                string_to_time(&global_mission_data.MISSION_TIME, &global_mission_data.MISSION_TIME_ms);
             }
 
             // set command echo
