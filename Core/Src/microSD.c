@@ -48,11 +48,11 @@ void init_SD(void){
 
 	// Check if file exists first
 	FIL file;
-	FRESULT fr = f_open(&file, "Log26.csv", FA_READ);
+	FRESULT fr = f_open(&file, "log26.csv", FA_READ);
 	if (fr == FR_NO_FILE) {
 	    // File doesn't exist, create and write header
 	    f_close(&file);
-	    write_SD(header_string, strlen(header_string), "Log26.csv", FA_WRITE | FA_CREATE_ALWAYS);
+	    write_SD(header_string, strlen(header_string), "log26.csv", FA_WRITE | FA_CREATE_ALWAYS);
 	} else {
 	    // File exists, just close it
 	    f_close(&file);
