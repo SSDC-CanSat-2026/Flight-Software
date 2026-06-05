@@ -1436,6 +1436,7 @@ void StartReadSensors(void const * argument)
 
 
    BMM350_INTF_RET_TYPE bmm_result = BMM350_read_mag_data(&BMM350, &mag_data);
+<<<<<<< Updated upstream
 
    struct bmm350_raw_mag_data raw_data;
    int8_t ret = bmm350_read_uncomp_mag_temp_data(&raw_data, &BMM350);
@@ -1445,6 +1446,8 @@ void StartReadSensors(void const * argument)
    mag_actual[0] = mag_data.x-b[0];
    mag_actual[1] = mag_data.y-b[1];
    mag_actual[2] = mag_data.z-b[2];
+=======
+>>>>>>> Stashed changes
 
    mag_actual[0] = (1.8507e-2*mag_actual[0])+(2.5561e-4*mag_actual[1])+(5.5292e-7*mag_actual[2]);
    mag_actual[1] = (2.556e-4*mag_actual[0])+(1.855804e-2*mag_actual[1])+(5.4095e-5*mag_actual[2]);
