@@ -1485,7 +1485,7 @@ void StartReadCommands(void const * argument)
   /* USER CODE BEGIN StartReadCommands */
 	osStatus stat = osErrorOS;
 
-	char rx_string[25];
+	char rx_string[30];
     for (;;)
     {
 
@@ -1550,20 +1550,20 @@ void StartReadCommands(void const * argument)
                 char *str_end;
                 strncpy(global_mission_data.MISSION_TIME, time_str, 9);
                 // Set a flag telling us to update the RTC
-                update_time = 1;
+//                update_time = 1;
                 // stop reading time from GPS
-                gps_time_enable = 0;
+//                gps_time_enable = 0;
             }
             // read time from GPS
             else if (strncmp(time_str, "GPS", 3))
             {
-                 gps_time_enable = 1;
+//                 gps_time_enable = 1;
             }
             else
             {
             // if the string is not 8 characters long, set it to "00:00:00"
                 strcpy(global_mission_data.MISSION_TIME, "00:00:00");
-                gps_time_enable = 0;
+//                gps_time_enable = 0;
             }
 
             // set command echo
@@ -1681,6 +1681,10 @@ void StartReadCommands(void const * argument)
 		  float angle = atof(rx_string + 17);
 		  SERVO_MoveTo(EGG_SERVO, angle);
 		}
+        else if (strncmp(rx_string, "CMD,1075,MEC,RELEASE,", 21) == 0)
+        {
+        	uint8_t release_can = strncmp(rx_string+21, "ON", 2) ? 0 : 1; // If strncmp != 0, then assume "OFF"
+        }
 
         COMMAND_READY = 0;
 
@@ -1718,7 +1722,7 @@ void StartSendTelemetry(void const * argument)
     }
 
     // create an empty buffer for the telemetry packet string
-    char telemetry_string[200];
+    char telemetry_string[200] = {0};
 
     // Generic temporary variable for use in sprintf() calls, etc.
     uint16_t str_len = 0;
