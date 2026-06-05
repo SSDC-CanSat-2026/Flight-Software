@@ -217,6 +217,14 @@ void time_to_string(uint32_t time_ms, char *out) {
     out[7] = '0' + (seconds % 10);
 }
 
+void string_to_time(const char *in, uint32_t *time_ms) {
+    *time_ms = (
+        ((in[0] - '0') * 10 + (in[1] - '0')) * 3600UL +
+        ((in[3] - '0') * 10 + (in[4] - '0')) * 60UL +
+        ((in[6] - '0') * 10 + (in[7] - '0'))
+    ) * 1000UL;
+}
+
 
 /* Private helpers */
 

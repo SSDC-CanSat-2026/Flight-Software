@@ -105,6 +105,7 @@ int parse_rmc(char *sentence, RMC_Data_t* out);
 //double convert_to_double(char string_double[]);
 //uint8_t convert_to_integer(char string_int[]);
 void time_to_string(uint32_t time_ms, char *out); // This is also used for MISSION_TIME
+void string_to_time(const char *in, uint32_t *time_ms);
 
 /* Private helpers */
 static uint32_t parse_gps_str_time_ms(const char *s);

@@ -103,11 +103,16 @@ uint8_t xbee_dma_buffer[BUFFER_SIZE]  = { 0 };
 char gps_receive_buffer[BUFFER_SIZE]  = { 0 };
 char xbee_receive_buffer[BUFFER_SIZE]  = { 0 };
 
+// At what tick was the last HAL reset.
+// Used when we call to update the time.
+volatile uint32_t HAL_TICK_OFFSET = 0; // Set when ST is called.
+
 // Flags for GPS and XBEE since they use UART DMA
-volatile uint16_t GPS_SIZE 	   	= 0;
-volatile uint8_t GPS_READY 	   	= 0;
-volatile uint16_t COMMAND_SIZE 	= 0;
-volatile uint8_t COMMAND_READY 	= 0;
+volatile uint16_t GPS_SIZE 	   		= 0;
+volatile uint8_t GPS_READY 	   		= 0;
+volatile uint16_t COMMAND_SIZE 		= 0;
+volatile uint8_t COMMAND_READY 		= 0;
+volatile uint8_t GPS_TIME_ENABLE 	= 0;
 
 GGA_Data_t gga_data;
 RMC_Data_t rmc_data;
@@ -1458,14 +1463,6 @@ void StartReadSensors(void const * argument)
 
     // Relinquish access to the global_mission_data struct
 
-//    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
-//    snprintf(testing_data, sizeof(testing_data), "TESTING,%lf,%lf,%lf,%lf,%lf,%lf", global_mission_data.ACCEL_X, global_mission_data.ACCEL_Y,
-//    									global_mission_data.ACCEL_Z, global_mission_data.GYRO_R, global_mission_data.GYRO_P, global_mission_data.GYRO_Y);
-//
-//    size_t testing_length = strlen(testing_data);
-
-//    FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
-
     osSemaphoreRelease(globalDataHandle);
 
     osDelay(100);
@@ -1544,26 +1541,24 @@ void StartReadCommands(void const * argument)
 
             // removed this code because GPS is screwed
             // if a manual timestamp has been input...
+            HAL_TICK_OFFSET = HAL_GetTick();
             if (strlen(arg) == 8)
             {
             	// set mission time
                 char *str_end;
                 strncpy(global_mission_data.MISSION_TIME, time_str, 9);
-                // Set a flag telling us to update the RTC
-//                update_time = 1;
-                // stop reading time from GPS
-//                gps_time_enable = 0;
+                string_to_time(&global_mission_data.MISSION_TIME, &global_mission_data.MISSION_TIME_ms);
             }
             // read time from GPS
             else if (strncmp(time_str, "GPS", 3))
             {
-//                 gps_time_enable = 1;
+            	global_mission_data.MISSION_TIME_ms = rmc_data.time_ms;
             }
             else
             {
             // if the string is not 8 characters long, set it to "00:00:00"
-                strcpy(global_mission_data.MISSION_TIME, "00:00:00");
-//                gps_time_enable = 0;
+            	strcpy(global_mission_data.MISSION_TIME, "00:00:00");
+                string_to_time(&global_mission_data.MISSION_TIME, &global_mission_data.MISSION_TIME_ms);
             }
 
             // set command echo
@@ -1779,10 +1774,15 @@ void StartSendTelemetry(void const * argument)
     if (result != FR_OK)
     	HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
-    global_mission_data.MISSION_TIME_ms = HAL_GetTick();
-    time_to_string(global_mission_data.MISSION_TIME_ms, &global_mission_data.MISSION_TIME[0]);
+    // Convert ms to hh:mm:ss and put into MISSION_TIME
+    time_to_string(global_mission_data.MISSION_TIME_ms + HAL_GetTick() - HAL_TICK_OFFSET, &global_mission_data.MISSION_TIME[0]);
+    // Copy MISSION_TIMEs
     strcpy(&global_config.MISSION_TIME[0], &global_mission_data.MISSION_TIME[0]);
+    // Save information to sd.
     save_config_to_sd();
+
+
+
     osSemaphoreRelease(globalDataHandle);
     // exit the critical region once both packets have been sent
     //    taskEXIT_CRITICAL();
