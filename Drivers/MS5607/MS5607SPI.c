@@ -387,7 +387,7 @@ float calculateAltitude(double pressure) {
       altitude_history[1] = altitude_history[0];
       altitude_history[0] = h_meter - global_mission_data.ALTITUDE_OFFSET;
 	}
-  return h_meter - global_mission_data.ALTITUDE_OFFSET;
+  return h_meter;
 }
 
 float calculate_abs_altitude(double pressure) {
