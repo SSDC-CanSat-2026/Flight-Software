@@ -1437,10 +1437,22 @@ void StartReadSensors(void const * argument)
 
    BMM350_INTF_RET_TYPE bmm_result = BMM350_read_mag_data(&BMM350, &mag_data);
 
-   float theta_mag = atan2f(mag_data.y, mag_data.x);
+   struct bmm350_raw_mag_data raw_data;
+   int8_t ret = bmm350_read_uncomp_mag_temp_data(&raw_data, &BMM350);
+
+   float b[3] = {48.08426668f,16.44377569f,20.91171948f};
+   float mag_actual[3] = {0.0,0.0,0.0};
+   mag_actual[0] = mag_data.x-b[0];
+   mag_actual[1] = mag_data.y-b[1];
+   mag_actual[2] = mag_data.z-b[2];
+
+   mag_actual[0] = (1.8507e-2*mag_actual[0])+(2.5561e-4*mag_actual[1])+(5.5292e-7*mag_actual[2]);
+   mag_actual[1] = (2.556e-4*mag_actual[0])+(1.855804e-2*mag_actual[1])+(5.4095e-5*mag_actual[2]);
+   mag_actual[2] = (5.529e-7*mag_actual[0])+(5.40947822e-5*mag_actual[1])+(1.9022e-2*mag_actual[2]);
+
+   float theta_mag = atan2f(mag_actual[1], mag_actual[0]);
    float theta_declination = -9.53;
    float theta_true = theta_mag + theta_declination;
-
 
     // Relinquish access to the global_mission_data struct
 
