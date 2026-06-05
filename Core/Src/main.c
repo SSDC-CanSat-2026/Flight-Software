@@ -1746,11 +1746,6 @@ void StartSendTelemetry(void const * argument)
     if (result != FR_OK)
     	HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
-    // TODO: We need an if statement about where we are getting the time from.
-    // 1. First determine if we need to update the time so we do not add the HAL_GetTick. Else add the Tick offset.
-    // 			We definitely need some extra functions to calculate how much Tick offset if needed.
-    // 2. If we do update the time, do we use the UTC value given or the GPS?
-
     // Convert ms to hh:mm:ss and put into MISSION_TIME
     time_to_string(global_mission_data.MISSION_TIME_ms + HAL_GetTick() - HAL_TICK_OFFSET, &global_mission_data.MISSION_TIME[0]);
     // Copy MISSION_TIMEs
