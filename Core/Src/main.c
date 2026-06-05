@@ -1454,15 +1454,25 @@ void StartReadSensors(void const * argument)
    float theta_declination = -9.53;
    float theta_true = theta_mag + theta_declination;
 
+<<<<<<< Updated upstream
+=======
+
+
+
+
+>>>>>>> Stashed changes
     // Relinquish access to the global_mission_data struct
 
 //    snprintf(testing_data, sizeof(testing_data), "TESTING,%d", voltage);
 //    snprintf(testing_data, sizeof(testing_data), "TESTING,%lf,%lf,%lf,%lf,%lf,%lf", global_mission_data.ACCEL_X, global_mission_data.ACCEL_Y,
 //    									global_mission_data.ACCEL_Z, global_mission_data.GYRO_R, global_mission_data.GYRO_P, global_mission_data.GYRO_Y);
-//
-//    size_t testing_length = strlen(testing_data);
 
-//    FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
+   snprintf(testing_data, sizeof(testing_data), "TESTING,%.5f,%.5f,%.5f", mag_data.x, mag_data.y, mag_data.z);
+    size_t testing_length = strlen(testing_data);
+
+    FRESULT result = write_SD(testing_data, testing_length, "debug.csv", (FA_WRITE));
+
+    HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
 
     osSemaphoreRelease(globalDataHandle);
 
