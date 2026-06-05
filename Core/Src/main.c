@@ -49,13 +49,17 @@
 #define BUFFER_SIZE 		256
 #define XBEE_MAX_PAYLOAD 	80   // Safe value
 
-#define SERVO_Motor0 0
-#define SERVO_Motor1 1
+#define SERVO_Motor0 4
+#define SERVO_Motor1 3
 #define SERVO_Motor2 2
-#define SERVO_Motor3 3
-#define SERVO_Motor4 4
+#define SERVO_Motor3 1
+#define SERVO_Motor4 0
 
-#define EGG_SERVO SERVO_Motor1
+#define EGG_SERVO 		SERVO_Motor0
+#define RELEASE_SERVO0 	SERVO_Motor1
+#define RELEASE_SERVO1 	SERVO_Motor2
+#define GUIDE_SERVO0	SERVO_Motor3
+#define GUIDE_SERVO1	SERVO_Motor4
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -1465,6 +1469,7 @@ void StartReadSensors(void const * argument)
 
     osSemaphoreRelease(globalDataHandle);
 
+
     osDelay(100);
   }
   /* USER CODE END 5 */
@@ -1547,7 +1552,7 @@ void StartReadCommands(void const * argument)
             	// set mission time
                 char *str_end;
                 strncpy(global_mission_data.MISSION_TIME, time_str, 9);
-                string_to_time(&global_mission_data.MISSION_TIME, &global_mission_data.MISSION_TIME_ms);
+                string_to_time(&global_mission_data.MISSION_TIME[0], &global_mission_data.MISSION_TIME_ms);
             }
             // read time from GPS
             else if (strncmp(time_str, "GPS", 3))
@@ -1558,7 +1563,7 @@ void StartReadCommands(void const * argument)
             {
             // if the string is not 8 characters long, set it to "00:00:00"
             	strcpy(global_mission_data.MISSION_TIME, "00:00:00");
-                string_to_time(&global_mission_data.MISSION_TIME, &global_mission_data.MISSION_TIME_ms);
+                string_to_time(&global_mission_data.MISSION_TIME[0], &global_mission_data.MISSION_TIME_ms);
             }
 
             // set command echo
@@ -1644,41 +1649,62 @@ void StartReadCommands(void const * argument)
         else if (strncmp(rx_string, "CMD,1075,MEC,SERVO0,", 20) == 0)
 		{
 		  float angle = atof(rx_string + 20);
-		  SERVO_MoveTo(SERVO_Motor0, angle);
+		  SERVO_MoveTo_180(SERVO_Motor0, angle);
 		}
 		// Servo #1
         else if (strncmp(rx_string, "CMD,1075,MEC,SERVO1,", 20) == 0)
 		{
 		  float angle = atof(rx_string + 20);
-		  SERVO_MoveTo(SERVO_Motor1, angle);
+		  SERVO_MoveTo_180(SERVO_Motor1, angle);
 		}
 		// Servo #2
         else if (strncmp(rx_string, "CMD,1075,MEC,SERVO2,", 20) == 0)
 		{
 		  float angle = atof(rx_string + 20);
-		  SERVO_MoveTo(SERVO_Motor2, angle);
+		  SERVO_MoveTo_180(SERVO_Motor2, angle);
 		}
 		// Servo #3
         else if (strncmp(rx_string, "CMD,1075,MEC,SERVO3,", 20) == 0)
 		{
 		  float angle = atof(rx_string + 20);
-		  SERVO_MoveTo(SERVO_Motor3, angle);
+		  SERVO_MoveTo_180(SERVO_Motor3, angle);
 		}
 		// Servo #4
         else if (strncmp(rx_string, "CMD,1075,MEC,SERVO4,", 20) == 0)
 		{
 		  float angle = atof(rx_string + 20);
-		  SERVO_MoveTo(SERVO_Motor4, angle);
+		  SERVO_MoveTo_180(SERVO_Motor4, angle);
 		}
 		// Servo #5
         else if (strncmp(rx_string, "CMD,1075,MEC,EGG,", 17) == 0)
 		{
 		  float angle = atof(rx_string + 17);
-		  SERVO_MoveTo(EGG_SERVO, angle);
+		  SERVO_MoveTo_180(EGG_SERVO, angle);
 		}
         else if (strncmp(rx_string, "CMD,1075,MEC,RELEASE,", 21) == 0)
         {
         	uint8_t release_can = strncmp(rx_string+21, "ON", 2) ? 0 : 1; // If strncmp != 0, then assume "OFF"
+
+        	// FIXME : If the servos become 270 degree servos these sets of functions will need to be swapped over.
+        	if (release_can) {
+        		SERVO_MoveTo_180(RELEASE_SERVO0, 0);
+        		SERVO_MoveTo_180(RELEASE_SERVO1, 0);
+        	} else {
+        		SERVO_MoveTo_180(RELEASE_SERVO0, 90);
+				SERVO_MoveTo_180(RELEASE_SERVO1, 90);
+        	}
+        }
+        else if (strncmp(rx_string, "CMD,1075,MEC,GUIDANCE,", 22) == 0)
+        {
+        	uint8_t left_right = strncmp(rx_string+22, "LEFT", 4) ? 0 : 1;
+
+        	if (left_right) {
+        		SERVO_MoveTo_180(GUIDE_SERVO0, 0);
+        		SERVO_MoveTo_180(GUIDE_SERVO1, 0);
+        	} else {
+        		SERVO_MoveTo_180(GUIDE_SERVO0, 90);
+				SERVO_MoveTo_180(GUIDE_SERVO1, 90);
+        	}
         }
 
         COMMAND_READY = 0;
@@ -1824,7 +1850,8 @@ void StartGNC(void const * argument)
     //    GPIO_PIN_RESET);
     //    }
 
-    SERVO_Sweep(EGG_SERVO);
+    SERVO_Sweep_180(SERVO_Motor0);
+//    SERVO_Sweep_180(SERVO_Motor4);
 
 //    SERVO_RawMove(SERVO_Motor2,)
 
@@ -1873,11 +1900,16 @@ void StartInit(void const * argument)
 
 //  HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
 
-  SERVO_Init(SERVO_Motor0, &htim3);
+  SERVO_Init(SERVO_Motor0, &htim15);
+  SERVO_MoveTo_180(SERVO_Motor0, 0);
   SERVO_Init(SERVO_Motor1, &htim3);
+  SERVO_MoveTo_180(SERVO_Motor1, 0);
   SERVO_Init(SERVO_Motor2, &htim3);
+  SERVO_MoveTo_180(SERVO_Motor2, 0);
   SERVO_Init(SERVO_Motor3, &htim3);
-  SERVO_Init(SERVO_Motor4, &htim15);
+  SERVO_MoveTo_180(SERVO_Motor3, 0);
+  SERVO_Init(SERVO_Motor4, &htim3);
+  SERVO_MoveTo_180(SERVO_Motor4, 0);
 
 
   HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
