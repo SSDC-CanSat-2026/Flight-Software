@@ -112,7 +112,7 @@ volatile uint16_t GPS_SIZE 	   		= 0;
 volatile uint8_t GPS_READY 	   		= 0;
 volatile uint16_t COMMAND_SIZE 		= 0;
 volatile uint8_t COMMAND_READY 		= 0;
-volatile uint8_t GPS_TIME_ENABLE 	= 1;
+volatile uint8_t GPS_TIME_ENABLE 	= 0;
 
 GGA_Data_t gga_data;
 RMC_Data_t rmc_data;
