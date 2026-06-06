@@ -55,7 +55,17 @@ void init_SD(void){
 	    write_SD(header_string, strlen(header_string), "log26.csv", FA_WRITE | FA_CREATE_ALWAYS);
 	} else {
 	    // File exists, just close it
-	    f_close(&file);
+
+		if (f_size(fil) == 0)
+		    {
+		        result = f_write(fil, header_string, strlen(header_string), &bytesWritten);
+		        if (result != FR_OK || bytesWritten != strlen(header_string))
+		        {
+		            ret = 3;
+		            goto cleanup;
+		        }
+		    }
+		f_close(&file);
 	}
 
 	check_fatfs_guards();
@@ -123,15 +133,7 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
     if (result != FR_OK) return 1;
     fileIsOpen = 1;
 
-    if (f_size(fil) == 0)
-    {
-        result = f_write(fil, header_string, strlen(header_string), &bytesWritten);
-        if (result != FR_OK || bytesWritten != strlen(header_string))
-        {
-            ret = 3;
-            goto cleanup;
-        }
-    }
+
 
     result = f_lseek(fil, f_size(fil));
     if (result != FR_OK) { ret = 2; goto cleanup; }
@@ -164,12 +166,6 @@ uint32_t write_SD(char* telemetry_string, uint16_t str_len, char filename[], uin
 
     // HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
 
-    result = f_lseek(fil, f_size(fil));
-    if (result != FR_OK)
-    {
-        ret = 2;
-        goto cleanup;
-    }
 
 cleanup:
     if (fileIsOpen)
