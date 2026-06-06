@@ -1751,6 +1751,16 @@ void StartReadCommands(void const * argument)
         {
         	nav.activateGNC = 1;
         }
+        else if (strncmp(rx_string, "CMD,1075,MEC,CAM0,", 18) == 0)
+        {
+        	if (strncmp(rx_string+18, "ON", 2) == 0) {
+        		HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_SET);
+        }
+        else {
+        		HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_RESET);
+        }
+
+        }
 
         COMMAND_READY = 0;
 
