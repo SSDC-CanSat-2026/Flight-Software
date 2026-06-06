@@ -114,8 +114,9 @@ volatile uint16_t COMMAND_SIZE 		= 0;
 volatile uint8_t COMMAND_READY 		= 0;
 volatile uint8_t GPS_TIME_ENABLE 	= 0;
 
-GGA_Data_t gga_data;
-RMC_Data_t rmc_data;
+GGA_Data_t 		gga_data;
+RMC_Data_t 		rmc_data;
+PSTMPV_Data_t 	pstmpv_data;
 
 ICM42688P_AccelData ICM42688P_Data = {0};
 
@@ -1407,7 +1408,7 @@ void StartReadSensors(void const * argument)
       {
        // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
        // into the gps_receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
-       int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data);
+       int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data, &pstmpv_data);
        GPS_READY = 0;
 
        //result is 1 on success
@@ -1547,7 +1548,7 @@ void StartReadCommands(void const * argument)
             	// set mission time
                 char *str_end;
                 strncpy(global_mission_data.MISSION_TIME, time_str, 9);
-                string_to_time(&global_mission_data.MISSION_TIME, &global_mission_data.MISSION_TIME_ms);
+                string_to_time(&global_mission_data.MISSION_TIME[0], &global_mission_data.MISSION_TIME_ms);
             }
             // read time from GPS
             else if (strncmp(time_str, "GPS", 3))
@@ -1558,7 +1559,7 @@ void StartReadCommands(void const * argument)
             {
             // if the string is not 8 characters long, set it to "00:00:00"
             	strcpy(global_mission_data.MISSION_TIME, "00:00:00");
-                string_to_time(&global_mission_data.MISSION_TIME, &global_mission_data.MISSION_TIME_ms);
+                string_to_time(&global_mission_data.MISSION_TIME[0], &global_mission_data.MISSION_TIME_ms);
             }
 
             // set command echo

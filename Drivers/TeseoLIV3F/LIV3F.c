@@ -7,6 +7,12 @@
 
 #include "LIV3F.h"
 
+/* Private helpers */
+static uint32_t parse_gps_str_time_ms(const char *s);
+static float nmea_to_decimal(char *coord, char dir);
+static float fast_atof(const char *s);
+static uint32_t pstmpv_timestamp(char *s);
+
 void teseo_INIT(UART_HandleTypeDef* huart) {
 	/*
 	 * Low 32 bits:
@@ -18,16 +24,25 @@ void teseo_INIT(UART_HandleTypeDef* huart) {
 	 */
 
 	const char* cmds[] = {
-		"$PSTMCFGMSGL,0,0,00000000,00000000*4D\r\n",
-		"$PSTMCFGMSGL,1,0,00000000,00000000*4C\r\n",
-		"$PSTMCFGMSGL,2,0,00000000,00000000*4F\r\n",
-		"$PSTMCFGMSGL,0,1,00000002,00000000*4E\r\n"
+//		"$PSTMCFGMSGL,0,0,00000000,00000000*4D\r\n",
+//		"$PSTMCFGMSGL,1,0,00000000,00000000*4C\r\n",
+//		"$PSTMCFGMSGL,2,0,00000000,00000000*4F\r\n",
+		"$PSTMCFGMSGL,0,1,00000042,00000001*4B\r\n"
 	};
 
-	for (int i = 0; i < 4; i++) {
-		HAL_UART_Transmit(huart, (uint8_t*)cmds[i], strlen(cmds[i]), HAL_MAX_DELAY);
-		HAL_Delay(100);
-	}
+//	for (int i = 0; i < 4; i++) {
+//		HAL_UART_Transmit(huart, (uint8_t*)cmds[i], strlen(cmds[i]), HAL_MAX_DELAY);
+//		HAL_Delay(100);
+//	}
+
+	uint8_t data[100] = {0};
+	HAL_UART_Transmit(huart, (uint8_t*)cmds[0], strlen(cmds[0]), HAL_MAX_DELAY);
+	HAL_UART_Receive(huart, &data[0], 24, 2000);
+
+	char *save[] = {"$PSTMSAVEPAR*58\r\n"};
+	HAL_UART_Transmit(huart, (uint8_t*)save[0], strlen(save[0]), HAL_MAX_DELAY);
+
+	uint8_t test = 9;
 
 }
 
@@ -42,7 +57,7 @@ void cold_start(UART_HandleTypeDef* huart) {
 // Because there is now more than one message, this function acts as a wrapper
 //  that will determine which parser needs to be called first.
 // Return 1 for GGA and return 2 for RMC
-int parse_gps_buffer(char *sentence, GGA_Data_t* gga_out, RMC_Data_t* rmc_out) {
+int parse_gps_buffer(char *sentence, GGA_Data_t* gga_out, RMC_Data_t* rmc_out, PSTMPV_Data_t *pstmpv_out) {
 	for (uint8_t i = 0; i < 50; i++) {
 		if (sentence[i] == '$') {
 			sentence += i;
@@ -54,6 +69,8 @@ int parse_gps_buffer(char *sentence, GGA_Data_t* gga_out, RMC_Data_t* rmc_out) {
         return parse_gga(sentence, gga_out);
     } else if (strncmp(sentence, "$GPRMC", 6) == 0 || strncmp(sentence, "$GNRMC", 6) == 0) {
         return parse_rmc(sentence, rmc_out);
+    } else if (strncmp(sentence, "$PSTMPV", 7) == 0) {
+    	return parse_pstmpv(sentence, pstmpv_out);
     } else {
         return -1;
     }
@@ -192,6 +209,90 @@ int parse_rmc(char *sentence, RMC_Data_t* out) {
     return 2;
 }
 
+int parse_pstmpv(char *sentence, PSTMPV_Data_t *pstmpv_out) {
+    /*
+	The init() sets the PSTMPV message to be enabled.
+	The protocol specification can be found in the Software Manual for the TeseoLIV3F in 11.5.63
+
+	$PSTMPV,<Timestamp>,<Lat>,<N/S>,<Long>,<E/W>,<Alt>,<AltVal>,<Vel_N>,<Vel_E>,<Vel_V>,<P_cov_N>,<P_cov_NE>,<P_cov_NV>,
+	    <P_cov_E>,<P_cov_EV>,<P_cov_V>,<V_cov_N>,<V_cov_NE>,<V_cov_NV>,<V_cov_E>,<V_cov_EV>,<V_cov_V>,*<Checksum><CR><LF>
+	Example: $GPRMC,183417.000,V,4814.040,N,01128.522,E,0.0,0.0,170907,0.0,W*6C
+
+	<Timestamp>	-	10	characters	(HHMMSS.SSS)
+	<Latitude>	-	10	characters	(DDMM.MMMMM)
+	<N/S>		-	1 	character
+	<Longitude> -	10	characters	(DDMM.MMMMM)
+	<E/W>		-	1 	character
+	<Altitude>	-	6 	characters	(Can have a decimal)
+	<AltVal>	-	1	character	"M"
+	<Vel_N>		-	5	characters	(ddd.d)
+	<Vel_E>		-	5	characters	(ddd.d)
+	<Vel_V>		-	5	characters	(ddd.d)
+	<P_cov_N>	-	5	characters  (ddd.d)
+	<P_cov_NE>	-	5	characters  (ddd.d)
+	<P_cov_NV>	-	5	characters  (ddd.d)
+	<P_cov_E>	-	5	characters  (ddd.d)
+	<P_cov_EV>	-	5	characters  (ddd.d)
+	<P_cov_V>	-	5	characters  (ddd.d)
+	<V_cov_N>	-	5	characters  (ddd.d)
+	<V_cov_NE>	-	5	characters  (ddd.d)
+	<V_cov_NV>	-	5	characters  (ddd.d)
+	<V_cov_E>	-	5	characters  (ddd.d)
+	<V_cov_EV>	-	5	characters  (ddd.d)
+	<V_cov_V>	-	5	characters  (ddd.d)
+	<Checksum>
+	<CR><LF>
+	*/
+
+
+    if (strncmp(sentence, "$PSTMPV", 7) != 0)
+        return 0;
+
+    char *fields[MAX_PSTMPV_FIELDS] = {0};
+    int field_count = 0;
+
+    char *p = sentence;
+    fields[field_count++] = p;
+
+    while (*p && field_count < MAX_PSTMPV_FIELDS)
+    {
+        if (*p == ',' || *p == '*')
+        {
+            *p = '\0';
+            fields[field_count++] = p + 1;
+        }
+        p++;
+    }
+
+    if (field_count < 14)
+        return 0;
+
+    strcpy(pstmpv_out->timestamp, fields[1]);
+    pstmpv_out->time_ms = pstmpv_timestamp(&pstmpv_out->timestamp[0]);
+
+    pstmpv_out->latitude	= (fields[2][0]) 	? fast_atof(fields[2]) 	: 0.0f;
+    pstmpv_out->longitude	= (fields[4][0]) 	? fast_atof(fields[4]) 	: 0.0f;
+    pstmpv_out->altitude 	= (fields[6][0]) 	? fast_atof(fields[6]) 	: 0.0f;
+    strncpy(&pstmpv_out->alt_val, &fields[7][0], 1);
+    pstmpv_out->vel_North	= (fields[8][0]) 	? fast_atof(fields[8]) 	: 0.0f;
+    pstmpv_out->vel_East 	= (fields[9][0]) 	? fast_atof(fields[9]) 	: 0.0f;
+    pstmpv_out->vel_Vert	= (fields[10][0])	? fast_atof(fields[10])	: 0.0f;
+    pstmpv_out->P_cov_N   	= (fields[11][0]) 	? fast_atof(fields[11]) : 0.0f;
+    pstmpv_out->P_cov_NE	= (fields[12][0])	? fast_atof(fields[12])	: 0.0f;
+    pstmpv_out->P_cov_NV	= (fields[13][0])	? fast_atof(fields[13]) : 0.0f;
+    pstmpv_out->P_cov_E   	= (fields[14][0])	? fast_atof(fields[14]) : 0.0f;
+    pstmpv_out->P_cov_EV	= (fields[15][0])	? fast_atof(fields[15]) : 0.0f;
+    pstmpv_out->P_cov_V	  	= (fields[16][0])	? fast_atof(fields[16]) : 0.0f;
+    pstmpv_out->V_cov_N		= (fields[17][0])	? fast_atof(fields[17]) : 0.0f;
+    pstmpv_out->V_cov_NE	= (fields[18][0])	? fast_atof(fields[18]) : 0.0f;
+    pstmpv_out->V_cov_NV	= (fields[19][0])	? fast_atof(fields[19]) : 0.0f;
+    pstmpv_out->V_cov_E		= (fields[20][0])	? fast_atof(fields[20]) : 0.0f;
+    pstmpv_out->V_cov_EV	= (fields[21][0])	? fast_atof(fields[21]) : 0.0f;
+    pstmpv_out->V_cov_V		= (fields[22][0])	? fast_atof(fields[22]) : 0.0f;
+
+    return 3;
+}
+
 /* --------------------------------------------------------- HELPER FUNCTIONS --------------------------------------------------------- */
 
 // Used in the ReadSensors thread to convert from the millisecond form
@@ -316,3 +417,32 @@ static float fast_atof(const char *s) {
 
     return negative ? -result : result;
 }
+
+static uint32_t pstmpv_timestamp(char *s) {
+
+    uint32_t hours = ((*(s++) - 0x30) * 10) + (*(s++) - 0x30);
+    uint32_t minutes = ((*(s++) - 0x30) * 10) + (*(s++) - 0x30);
+    float seconds = ((*(s++) - 0x30) * 10.0) + (*(s+=2) - 0x30) + ((*(s++) - 0x30) / 10.0) + ((*(s++) - 0x30) / 100.0) + ((*(s++) - 0x30) / 1000.0);
+
+    uint32_t milliseconds = (int)((((float)hours * 3600.0) + ((float)minutes * 60) + seconds) * 1000);
+
+    return milliseconds;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
