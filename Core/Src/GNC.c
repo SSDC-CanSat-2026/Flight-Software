@@ -11,6 +11,8 @@
 #include "linalg.h"
 #include "GNC.h"
 
+#include "stm32g4xx_hal.h"
+
 //Define pi macro
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -18,12 +20,14 @@
 const float DEG2RAD = M_PI*(1.0/180.0);
 //GLOBAL CONSTANTS - these are useful constant variables that the GNC algorithm will need
 const float eps = 30.0;
-#define DEL2US 58.97365f //this directly converts a deflection command to microseconds
+#define DEL2US 5.379632835f //this directly converts a deflection command to microseconds
 
 //6 axis mounting angles (replace depending on what sensor mounting orientation is)
 #define IMUsens_yaw 90.0f //sensor mounting yaw
 #define IMUsens_pitch 0.0f //sensor mounting pitch
 #define IMUsens_roll 180.0f
+
+#define clock_length 0.313f // seconds
 
 const float phi_max = 10.0; //Maximum bank angle based on servo rotation limits
 
@@ -169,7 +173,7 @@ float calculateHE(float pos_G[3][1], float vel_L[3][1]) {
     return HE;
 }
 
-uint16_t computeCommand(Nav *nav, AutoPilot *ap) {
+float computeCommand(Nav *nav, AutoPilot *ap) {
     /*
     Calculates a PWM signal to the motor based on given roll command and current roll
     The current method just uses a proportional controller to bank the glider in
@@ -177,16 +181,16 @@ uint16_t computeCommand(Nav *nav, AutoPilot *ap) {
     */
     float Kp = 2.0f; //proportional gain term
     float err = ap->phi_cmd-nav->rpy[0][0]*1.0/DEG2RAD; //error in roll
-    float cmddeg2us = DEL2US*Kp*err;
+    float cmd = DEL2US*Kp*err;
 
-    uint16_t cmd = 1500+(uint16_t)roundf(cmddeg2us); //add servo command to servo home at 1500 us
-    if (cmd > 2500) {
-        cmd = 2500; //clip to max rotation
+    cmd += 135.0; //add servo command to servo home at 1500 us
+    if (cmd > 270.0) {
+        cmd = 270.0; //clip to max rotation
     }
-    if (cmd < 500) {
-        cmd = 500; //clip to min rotation
+    if (cmd < 0.0) {
+        cmd = 0.0; //clip to min rotation
     }
-    printf("Servo Command (us): %0.3d\n",cmd);
+    //printf("Servo Command (us): %0.3d\n",cmd);
     return cmd;
 }
 
@@ -258,9 +262,9 @@ Nav init_Navigation(float gps[3], float gyro[3][1], float accel[3][1]) {
         // gps = {latitude,longitude,height}
         // gyro = {{roll_rate},{pitch_rate},{yaw_rate}}
         // accel = {{accel_x},{accel_y},{accel_z}}
-    gps[0] = 38.37564166666667;
-    gps[1] = -79.60739444444444;
-    gps[2] = 1050.0;
+//    gps[0] = 38.37564166666667;
+//    gps[1] = -79.60739444444444;
+//    gps[2] = 1050.0;
     //Right now not using gyro and accel. But they should be used for determining offsets
 
     /*This function commputes the navigation states from initial sensor data on the launch pad before launch
@@ -327,7 +331,7 @@ void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][
 
     //TIME VARIABLES
     uint32_t currtime = HAL_GetTick();
-    uint32_t delta_t = currtime-nav->time; //get time difference
+    float delta_t = (float)(currtime-nav->time) / 1000.0; //get time difference
     nav->time = currtime;
 
     //GYRO ANGLES - integrate previous gyro angles over time step times the current gyro rate
@@ -335,6 +339,12 @@ void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][
     gyro_rpy[0][0] = (nav->gyro_old_r+gyro[0][0]*delta_t)*DEG2RAD; //gyro roll, pitch, yaw angles
     gyro_rpy[1][0] = (nav->gyro_old_p+gyro[1][0]*delta_t)*DEG2RAD;
     gyro_rpy[2][0] = (nav->gyro_old_y+gyro[2][0]*delta_t)*DEG2RAD;
+
+
+    nav->gyro_old_r = gyro_rpy[0][0]/DEG2RAD;
+    nav->gyro_old_p = gyro_rpy[1][0]/DEG2RAD;
+    nav->gyro_old_y = gyro_rpy[2][0]/DEG2RAD;
+
 
     //ACCELEROMETER TRIGONOMETRY - Using trigonometry to determine roll and pitch with respect to gravity
     //Note we cannot get yaw from an accelerometer, there is no reference acceleration we can base measurements off of.
@@ -347,8 +357,8 @@ void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][
     float accel_pang = atan2f(accel[1][0],accel[2][0]);
 
     //Final Attitude estimation - combine using a complementary filter
-    nav->rpy[0][0] = (w1*gyro_rpy[0][0])+(w2*accel_rang); //roll estimation
-    nav->rpy[1][0] = (w1*gyro_rpy[1][0])+(w2*accel_pang); //pitch estimation
+    nav->rpy[0][0] = gyro_rpy[0][0]; // (w1*gyro_rpy[0][0])+(w2*accel_rang); //roll estimation
+    nav->rpy[1][0] = gyro_rpy[1][0]; //(w1*gyro_rpy[1][0])+(w2*accel_pang); //pitch estimation
 
     //Yaw Angles - If the magnetometer is available can add ecompass() algorithm with accel+mag later
     //If we can get GPS velocity in North, East directions, we can calculate GPS heading and add to gyro.
@@ -361,7 +371,7 @@ void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][
     //float mag_yaw = atan2f(mag_NED[1][0],mag_NED[0][0]);
     //mag_yaw = mag_yaw+mag_decl;
     float gpsYaw = atan2f(gpsVelocity[1][0],gpsVelocity[0][0]);
-    nav->rpy[2][0] = (w1*gyro_rpy[2][0])+(w2*gpsYaw); //can only use gyro yaw
+    nav->rpy[2][0] = gyro_rpy[2][0]; // (w1*gyro_rpy[2][0])+(w2*gpsYaw); //can only use gyro yaw
 
     //------------------- VELOCITY (North, East, Down in m/s) -------------------
     //VELOCITY

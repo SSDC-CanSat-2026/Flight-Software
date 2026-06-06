@@ -58,7 +58,7 @@ typedef struct {
 float calculateTgo(float phi, float R, float Vg);
 void findTarget(Nav *nav, float gps[3]);
 float calculateHE(float pos_G[3][1], float vel_L[3][1]);
-uint16_t computeCommand(Nav *nav, AutoPilot *ap);
+float computeCommand(Nav *nav, AutoPilot *ap);
 Nav init_Navigation(float gps[3], float gyro[3][1], float accel[3][1]);
 void Update_Autopilot(Guidance *guid, Nav *nav, AutoPilot *ap);
 void Update_Guidance(Nav *nav, Guidance *guid);
