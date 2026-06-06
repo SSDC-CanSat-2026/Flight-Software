@@ -31,6 +31,13 @@ const float eps = 30.0;
 
 const float phi_max = 10.0; //Maximum bank angle based on servo rotation limits
 
+float trgtnodes[5][3] = {{38.37606944444445,-79.60810277777777,32.5}, //5 points on the drop zone (2 up, 1 center, 2 down)
+            {38.376127777777775,-79.60805277777777,32.5},
+            {38.376016666666665, -79.60787222222221,32.5},
+            {38.375905555555555, -79.607675,32.5},
+            {38.375952777777776, -79.60763055555555,32.5}};
+
+
 float calculateTgo(float phi, float R, float Vg) {
     /*----Description----
         calculateTgo() - Computes the time to go (t_go) using
@@ -72,7 +79,7 @@ void findTarget(Nav *nav, float gps[3]){
     */
     float trgtprev = nav->trgt[0][0]; //keeping track of current trgt
     float rtp[3][1] = {{0},{0},{0}}; //target to glider NED vector preallocated.
-    geodetic2ned(nav->trgtnodes[0][0],nav->trgtnodes[0][1],nav->trgtnodes[0][2],gps[0],gps[2],nav->pos_G[2][0],rtp); //get target to glider NED
+    geodetic2ned(trgtnodes[0][0],trgtnodes[0][1],trgtnodes[0][2],gps[0],gps[2],nav->pos_G[2][0],rtp); //get target to glider NED
     float arr1[2] = {rtp[0][0],rtp[1][0]}; //just want NE distance
     float dist = sqrtf(dot(arr1,arr1,2)); //compute north east distance to center target position
     float distprev = dist;
@@ -81,14 +88,14 @@ void findTarget(Nav *nav, float gps[3]){
     if (nav->slack == 0) { //no slack time, searching for target during coast
         for (int i=1;i<5;i++) {
             //Check the distance from each target
-            geodetic2ned(nav->trgtnodes[i][0],nav->trgtnodes[i][1],nav->trgtnodes[i][2],gps[0],gps[1],nav->pos_G[2][0],rtp); //get target to glider NED
+            geodetic2ned(trgtnodes[i][0],trgtnodes[i][1],trgtnodes[i][2],gps[0],gps[1],nav->pos_G[2][0],rtp); //get target to glider NED
             float arr1[2] = {rtp[0][0],rtp[1][0]};
             dist = dot(arr1,arr1,2);
             if (dist<distprev && dist > eps) { //if a closer target is found that satisfies the curvature limit
                 //UPDATE - NEED TO HAVE STRUCT POINTER PASSED TO FUNCTION
-                nav->trgt[0][0] = nav->trgtnodes[i][0];
-                nav->trgt[1][0] = nav->trgtnodes[i][1];
-                nav->trgt[2][0] = nav->trgtnodes[i][2];
+                nav->trgt[0][0] = trgtnodes[i][0];
+                nav->trgt[1][0] = trgtnodes[i][1];
+                nav->trgt[2][0] = trgtnodes[i][2];
                 printf("FOUND TARGET\n");
             }
         }
@@ -118,7 +125,7 @@ void findTarget(Nav *nav, float gps[3]){
         float tdiffprev;
         for (int i=1;i<5;i++) {
             //Check the time to go from each target
-            geodetic2ned(nav->trgtnodes[i][0],nav->trgtnodes[i][1],nav->trgtnodes[i][2],gps[0],gps[1],gps[2],rtp); //get target to glider NED
+            geodetic2ned(trgtnodes[i][0],trgtnodes[i][1],trgtnodes[i][2],gps[0],gps[1],gps[2],rtp); //get target to glider NED
             float arr1[2] = {rtp[0][0],rtp[1][0]}; //getting NE distance
             nav->HE = calculateHE(rtp,nav->vel_L);
             float Vgarr[2] = {nav->vel_L[0][0],nav->vel_L[1][0]}; //getting velocity in North-East plane
@@ -131,16 +138,16 @@ void findTarget(Nav *nav, float gps[3]){
                 //Found a target that has a closer intercept time but is still positive in time difference
                 //this ensures that the
                 //UPDATE - NEED TO HAVE STRUCT POINTER PASSED TO FUNCTION
-                nav->trgt[0][0] = nav->trgtnodes[i][0];
-                nav->trgt[1][0] = nav->trgtnodes[i][1];
-                nav->trgt[2][0] = nav->trgtnodes[i][2];
+                nav->trgt[0][0] = trgtnodes[i][0];
+                nav->trgt[1][0] = trgtnodes[i][1];
+                nav->trgt[2][0] = trgtnodes[i][2];
                 printf("Target found!\n");
                 nav->pursue = 1;
             }
             else if (fabsf(tdiff)<fabsf(tdiffprev)){ // otherwise fing the target with a smaller time regardless of sign
-                nav->trgt[0][0] = nav->trgtnodes[i][0];
-                nav->trgt[1][0] = nav->trgtnodes[i][1];
-                nav->trgt[2][0] = nav->trgtnodes[i][2];
+                nav->trgt[0][0] = trgtnodes[i][0];
+                nav->trgt[1][0] = trgtnodes[i][1];
+                nav->trgt[2][0] = trgtnodes[i][2];
                 printf("FOUND TARGET\n");
                 nav->pursue = 1;
             }
@@ -247,12 +254,10 @@ void Update_Guidance(Nav *nav, Guidance *guid) { //computes Guidance commands de
         //Control Law (Pure Proportional Navigation)
         //Since using pure pro-nav, we do not use the closing velocity
         //instead, we use the velocity along the x axis of the body frame.
-        guid->accel_cmd_B[1][0] = N*nav->vel_B[1][0]*los_dot;
+        float Vp[2] = {nav->vel_B[0][0],nav->vel_B[1][0]};
+        float Vp_mag = dot(Vp,Vp,2);
+        guid->accel_cmd_B[1][0] = N * Vp_mag * los_dot;
         guid->accel_cmd_B[2][0] = -9.79774; //gravity at CANSAT location
-        float ay = N*(nav->vel_B[0][0])*los_dot;
-        float az = -9.79774;
-        printf("los_dot: %0.5f\n",powf(RTG,2.0));
-        printf("Accel CMD, az: %0.5f\n",az);
     }
 }
 
@@ -278,11 +283,13 @@ Nav init_Navigation(float gps[3], float gyro[3][1], float accel[3][1]) {
     nav.trgt[1][0] = -79.6078722f;
     nav.trgt[2][0] = gps[2]; //current altitude measured by the GPS (mean height above ellipsoid)
     nav.deployHeight = gps[2]+2.0; //set the deployHeight to 2 meters above the launch pad height via rules
-    const float trgtnodes[5][3] = {{38.37606944444445,-79.60810277777777,nav.deployHeight}, //5 points on the drop zone (2 up, 1 center, 2 down)
-            {38.376127777777775,-79.60805277777777,nav.deployHeight},
-            {38.376016666666665, -79.60787222222221,nav.deployHeight},
-            {38.375905555555555, -79.607675,nav.deployHeight},
-            {38.375952777777776, -79.60763055555555,nav.deployHeight}};
+
+    trgtnodes[0][2] = nav.deployHeight;
+    trgtnodes[1][2] = nav.deployHeight;
+    trgtnodes[2][2] = nav.deployHeight;
+    trgtnodes[3][2] = nav.deployHeight;
+    trgtnodes[4][2] = nav.deployHeight;
+
 
     geodetic2ned(nav.trgt[0][0],nav.trgt[1][0],gps[2],gps[0],gps[1],gps[2],nav.pos_G);
 
@@ -303,8 +310,7 @@ Nav init_Navigation(float gps[3], float gyro[3][1], float accel[3][1]) {
     nav.mode = 0; //mode determines if glider is in coast or in pro-nav
     nav.pursue = 0; //pursue is a boolean that determines whether a target is pursued or not
     nav.activateGNC = 0; //this variable determines when the main GNC loop takes place
-    //nav.time = HAL_GetTick();
-    nav.time = 0;
+    nav.time = HAL_GetTick();
     nav.timeFound = 0; // time a target was found
     nav.timeIntercept = 0; //time a target has been intercepted
     return nav;
@@ -371,7 +377,7 @@ void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][
     //float mag_yaw = atan2f(mag_NED[1][0],mag_NED[0][0]);
     //mag_yaw = mag_yaw+mag_decl;
     float gpsYaw = atan2f(gpsVelocity[1][0],gpsVelocity[0][0]);
-    nav->rpy[2][0] = gyro_rpy[2][0]; // (w1*gyro_rpy[2][0])+(w2*gpsYaw); //can only use gyro yaw
+    nav->rpy[2][0] = (w1*gyro_rpy[2][0])+(w2*gpsYaw); //can only use gyro yaw
 
     //------------------- VELOCITY (North, East, Down in m/s) -------------------
     //VELOCITY

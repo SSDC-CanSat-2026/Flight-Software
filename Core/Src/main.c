@@ -1858,7 +1858,7 @@ void StartSendTelemetry(void const * argument)
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
-    SERVO_Sweep_180(SERVO_Motor2);
+//    SERVO_Sweep_180(SERVO_Motor2);
 
     osDelay(1000);
   }
