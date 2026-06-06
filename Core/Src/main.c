@@ -1467,7 +1467,9 @@ void StartReadSensors(void const * argument)
 
 	   //nav = init_Navigation(gps, accel, gyro); //initialize the navigation states
 
-	   nav = init_Navigation((float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE}, (float[3][1]){{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}}, (float[3][1]){{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}});
+	   nav = init_Navigation((float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE},
+			   (float[3][1]){{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}},
+			   (float[3][1]){{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}});
    }
 
 //    RTC_TimeTypeDef sTime = {0};
@@ -1849,7 +1851,13 @@ void StartGNC(void const * argument)
       GPS_READY = 0;
     }
 
-    //USE THE FOLLOWING BELOW AS A REFERENCE FOR CONSTRUCTION OF THE GNC ALGORITHM - Tristan
+    // Tristan's GNC Code
+    Update_Navigation(&nav, (float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE},
+    			   (float[3][1]){{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}},
+    			   (float[3][1]){{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}});
+    Update_Guidance(&nav,&guid); 				// With the new navigation states, update guidance commands
+    Update_Autopilot(&guid,&nav,&ap); 			// Determine autopilot commands which convert guidance commands into rotations
+    uint16_t cmd = computeCommand(&nav,&ap); 	// Compute the rotations necessary to turn the motors in us
 
     SERVO_Sweep(EGG_SERVO);
     // HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
