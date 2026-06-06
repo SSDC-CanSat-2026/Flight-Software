@@ -1556,7 +1556,7 @@ void StartReadCommands(void const * argument)
                 string_to_time(&global_mission_data.MISSION_TIME[0], &global_mission_data.MISSION_TIME_ms);
             }
             // read time from GPS
-            else if (strncmp(time_str, "GPS", 3))
+            else if (strncmp(time_str, "GPS", 3) == 0)
             {
             	global_mission_data.MISSION_TIME_ms = rmc_data.time_ms;
             }
@@ -1731,7 +1731,7 @@ void StartSendTelemetry(void const * argument)
 {
   /* USER CODE BEGIN StartSendTelemetry */
   osStatus stat = osErrorOS;
-  global_flags.telemetry_enable = 1;
+//  global_flags.telemetry_enable = 1;
   /* Infinite loop */
   for (;;) {
     // manually defines a critical region to ensure half-packets are never
