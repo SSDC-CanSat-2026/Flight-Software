@@ -398,7 +398,7 @@ float calculate_abs_altitude(double pressure) {
 
 // Idea is to calculateAltitude then immediately call this function
 // to detemrine state.
-void determineState(){
+void determineState(Nav *nav){
 	// NOTE: global_mission_data.ALTITUDE is for the altitude at this current time.
 
 	// LAUNCHPAD STATE
@@ -432,6 +432,7 @@ void determineState(){
 	else if (strcmp(global_mission_data.STATE, "DESCENT") == 0){
 		if (global_mission_data.ALTITUDE < max_altitude * (apogee_base_ratio + 0.05)){
 			char _state[] = "PROBE_RELEASE";
+			nav->activateGNC = 1;
 			memcpy(global_mission_data.STATE, _state, sizeof(_state));
 		}
 	}

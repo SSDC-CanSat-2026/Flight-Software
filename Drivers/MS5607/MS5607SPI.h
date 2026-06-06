@@ -38,6 +38,7 @@ extern "C"
 
 #include "stm32g4xx_hal.h"
 #include "../ICM42688P/ICM42688PSPI.h"
+#include "../../Core/Inc/GNC.h"
 #include <math.h>
 #include <string.h>
 #include <global.h>

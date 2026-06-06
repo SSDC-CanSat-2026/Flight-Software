@@ -1878,21 +1878,40 @@ void StartGNC(void const * argument)
       GPS_READY = 0;
     }
 
-    // Tristan's GNC Code
-    Update_Navigation(&nav, (float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE},
-    			   (float[3][1]){{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}},
-    			   (float[3][1]){{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}});
-    Update_Guidance(&nav,&guid); 				// With the new navigation states, update guidance commands
-    Update_Autopilot(&guid,&nav,&ap); 			// Determine autopilot commands which convert guidance commands into rotations
-    uint16_t cmd = computeCommand(&nav,&ap); 	// Compute the rotations necessary to turn the motors in us
+    if (nav.activateGNC) {
+		// Tristan's GNC Code
+		Update_Navigation(&nav, (float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE},
+					   (float[3][1]){{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}},
+					   (float[3][1]){{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}});
+		Update_Guidance(&nav,&guid); 				// With the new navigation states, update guidance commands
+		Update_Autopilot(&guid,&nav,&ap); 			// Determine autopilot commands which convert guidance commands into rotations
+		uint16_t cmd = computeCommand(&nav,&ap); 	// Compute the rotations necessary to turn the motors in us
 
-    // SERVE CODE // (the servos should be run at a 50Hz frequency.
+		// SERVE CODE // (the servos should be run at a 50Hz frequency.)
+		// TODO: This should be tested.
+		SERVO_RawMove(GUIDE_SERVO0, cmd);
+		SERVO_RawMove(GUIDE_SERVO1, cmd);
 
-
-    SERVO_Sweep_180(SERVO_Motor0);
-//    SERVO_Sweep_180(SERVO_Motor4);
-
-//    SERVO_RawMove(SERVO_Motor2,)
+		//CONDITIONAL LOGIC (this mainly just checks whether the paraglider needs to search for a target)
+		if (nav.slack == 1 && nav.DROPNOW == 1) {
+			printf("Condition 1 Entered. Deploying Egg....\n");
+			//ADD DEPLOYMENT CODE HERE (write to release servo)
+			SERVO_RawMove(EGG_SERVO, SERVO_Get_MaxPulse(EGG_SERVO));
+		}
+		else if (nav.slack == 1 && nav.DROPNOW == 0) {
+			printf("Condition 2 Entered. Searching for nearest target...\n");
+			findTarget(&nav, (float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE});
+		}
+		else if (nav.slack == 0 && nav.DROPNOW == 1) {
+			printf("Condition 3. Deploying Egg....\n");
+			//ADD DEPLOYMENT CODE HERE (write to release servo)
+			SERVO_RawMove(EGG_SERVO, SERVO_Get_MaxPulse(EGG_SERVO));
+		}
+		else if (nav.slack == 0 && nav.DROPNOW == 0) {
+			printf("Condition 4 Entered, Glider in Coast Phase\n");
+			findTarget(&nav, (float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE});
+		}
+    }
 
     HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
     osThreadYield();
