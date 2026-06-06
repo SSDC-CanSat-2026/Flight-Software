@@ -1371,6 +1371,69 @@ void StartReadSensors(void const * argument)
 //    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
 //    determineState(global_mission_data.ALTITUDE);
 
+
+    // ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+    ICM42688P_read_data(&ICM42688P_Data);
+    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
+    global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
+    global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+
+    global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
+    global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+    global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
+
+    global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
+    global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
+    global_mission_data.ACCEL_YAW = ICM42688P_Data.accel_yaw;
+
+ //   struct bmm350_mag_temp_data mag_data;
+ //   BMM350_read_mag_data(&bmm350, &mag_data);
+
+     uint16_t voltage = 0;
+     HAL_StatusTypeDef status = BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+     if (status == HAL_OK) {
+         global_mission_data.VOLTAGE = (float)voltage / 1000;
+     }
+
+     int16_t current = 0;
+     status = BQ28Z610_ReadCurrent(&hi2c3, &current);
+     if (status == HAL_OK)
+     {
+     	global_mission_data.CURRENT = (float)current;
+     }
+
+    //New code
+    if (GPS_READY)
+       {
+        // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
+        // into the gps_receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
+        int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data, &pstmpv_data);
+        GPS_READY = 0;
+
+        //result is 1 on success
+        if (result == 1)
+        {
+ //           HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+            global_mission_data.GPS_LATITUDE = gga_data.latitude;
+            global_mission_data.GPS_LONGITUDE = gga_data.longitude;
+            global_mission_data.GPS_ALTITUDE = gga_data.altitude;
+            global_mission_data.GPS_SATS = gga_data.num_satellites;
+
+            strcpy(global_mission_data.GPS_TIME, gga_data.gps_time);
+        }
+        else if (result == 2)
+        {
+     	   global_mission_data.GPS_LATITUDE = rmc_data.latitude;
+     	   global_mission_data.GPS_LONGITUDE = rmc_data.longitude;
+
+     	   strcpy(global_mission_data.GPS_TIME, rmc_data.gps_time);
+        }
+        else
+        {
+     	   HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+        }
+    }
+
     if(calibrating) {
 
         cal_sum += global_mission_data.PRESSURE;
@@ -1379,76 +1442,8 @@ void StartReadSensors(void const * argument)
         if(cal_count >= 10) {
             float pressure_avg = cal_sum / cal_count;
             global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
-
-            calibrating = 0;
-            is_calibrated = 1;
         }
-    }
 
-   // ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
-   ICM42688P_read_data(&ICM42688P_Data);
-   global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
-   global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
-   global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
-
-   global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
-   global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
-   global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
-
-   global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
-   global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
-   global_mission_data.ACCEL_YAW = ICM42688P_Data.accel_yaw;
-
-//   struct bmm350_mag_temp_data mag_data;
-//   BMM350_read_mag_data(&bmm350, &mag_data);
-
-    uint16_t voltage = 0;
-    HAL_StatusTypeDef status = BQ28Z610_ReadVoltage(&hi2c3, &voltage);
-    if (status == HAL_OK) {
-        global_mission_data.VOLTAGE = (float)voltage / 1000;
-    }
-
-    int16_t current = 0;
-    status = BQ28Z610_ReadCurrent(&hi2c3, &current);
-    if (status == HAL_OK)
-    {
-    	global_mission_data.CURRENT = (float)current;
-    }
-
-   //New code
-   if (GPS_READY)
-      {
-       // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
-       // into the gps_receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
-       int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data, &pstmpv_data);
-       GPS_READY = 0;
-
-       //result is 1 on success
-       if (result == 1)
-       {
-//           HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
-           global_mission_data.GPS_LATITUDE = gga_data.latitude;
-           global_mission_data.GPS_LONGITUDE = gga_data.longitude;
-           global_mission_data.GPS_ALTITUDE = gga_data.altitude;
-           global_mission_data.GPS_SATS = gga_data.num_satellites;
-
-           strcpy(global_mission_data.GPS_TIME, gga_data.gps_time);
-       }
-       else if (result == 2)
-       {
-    	   global_mission_data.GPS_LATITUDE = rmc_data.latitude;
-    	   global_mission_data.GPS_LONGITUDE = rmc_data.longitude;
-
-    	   strcpy(global_mission_data.GPS_TIME, rmc_data.gps_time);
-       }
-       else
-       {
-    	   HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
-       }
-   }
-
-   if (calibrating)
-   {
 	   // TODO: Initialize nav for GNC.
 	   //MAIN INITIALIZATION - run once to initialize Nav struct
 	           //1) initialize gyro,accel,mag offsets at launch pad
@@ -1475,6 +1470,9 @@ void StartReadSensors(void const * argument)
 	   nav = init_Navigation((float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE},
 			   (float[3][1]){{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}},
 			   (float[3][1]){{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}});
+
+	   calibrating = 0;
+	   is_calibrated = 1;
    }
 
 //    RTC_TimeTypeDef sTime = {0};
