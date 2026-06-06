@@ -36,6 +36,7 @@
 #include "../../Drivers/TeseoLIV3F/LIV3F.h"         // GPS Module
 #include "../../Drivers/SERVO/SERVO.h"      // Servos
 #include "../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h"
+#include "../Inc/GNC.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -123,6 +124,13 @@ RMC_Data_t 		rmc_data;
 PSTMPV_Data_t 	pstmpv_data;
 
 ICM42688P_AccelData ICM42688P_Data = {0};
+
+// GNC Private Variables (PV)
+Nav nav 		= {0}; // Initialized in readCommands.
+Guidance guid 	= {0}; // no guidance initially, can set this to zero
+AutoPilot ap 	= {0}; // same story with the autopilot, can set this to zero
+volatile uint8_t CALIBRATE_HEAD_NEEDED = 1;
+
 
 /* USER CODE END PV */
 
@@ -1361,10 +1369,73 @@ void StartReadSensors(void const * argument)
 
     global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE) - global_mission_data.ALTITUDE_OFFSET;
 
-//    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
-//    determineState(global_mission_data.ALTITUDE);
+    determineState(&nav);
+
+
+    // ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
+    ICM42688P_read_data(&ICM42688P_Data);
+    global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
+    global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
+    global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+
+    global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
+    global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
+    global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
+
+    global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
+    global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
+    global_mission_data.ACCEL_YAW = ICM42688P_Data.accel_yaw;
+
+ //   struct bmm350_mag_temp_data mag_data;
+ //   BMM350_read_mag_data(&bmm350, &mag_data);
+
+     uint16_t voltage = 0;
+     HAL_StatusTypeDef status = BQ28Z610_ReadVoltage(&hi2c3, &voltage);
+     if (status == HAL_OK) {
+         global_mission_data.VOLTAGE = (float)voltage / 1000;
+     }
+
+     int16_t current = 0;
+     status = BQ28Z610_ReadCurrent(&hi2c3, &current);
+     if (status == HAL_OK)
+     {
+     	global_mission_data.CURRENT = (float)current / 1000;
+     }
+
+    //New code
+    if (GPS_READY)
+    {
+        // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
+        // into the gps_receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
+        int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data, &pstmpv_data);
+        GPS_READY = 0;
+
+        //result is 1 on success
+        if (result == 1)
+        {
+ //           HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+            global_mission_data.GPS_LATITUDE = gga_data.latitude;
+            global_mission_data.GPS_LONGITUDE = gga_data.longitude;
+            global_mission_data.GPS_ALTITUDE = gga_data.altitude;
+            global_mission_data.GPS_SATS = gga_data.num_satellites;
+
+            strcpy(global_mission_data.GPS_TIME, gga_data.gps_time);
+        }
+        else if (result == 2)
+        {
+     	   global_mission_data.GPS_LATITUDE = rmc_data.latitude;
+     	   global_mission_data.GPS_LONGITUDE = rmc_data.longitude;
+
+     	   strcpy(global_mission_data.GPS_TIME, rmc_data.gps_time);
+        }
+        else
+        {
+     	   HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+        }
+    }
 
     if(calibrating) {
+
         cal_sum += global_mission_data.PRESSURE;
         cal_count++;
 
@@ -1372,70 +1443,37 @@ void StartReadSensors(void const * argument)
             float pressure_avg = cal_sum / cal_count;
             global_mission_data.ALTITUDE_OFFSET = calculateAltitude(pressure_avg);
 
-            calibrating = 0;
-            is_calibrated = 1;
+     	   calibrating = 0;
+     	   is_calibrated = 1;
         }
-    }
 
-   // ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
-   ICM42688P_read_data(&ICM42688P_Data);
-   global_mission_data.GYRO_R = ICM42688P_Data.gyro_r;
-   global_mission_data.GYRO_P = ICM42688P_Data.gyro_p;
-   global_mission_data.GYRO_Y = ICM42688P_Data.gyro_y;
+	   // TODO: Initialize nav for GNC.
+	   //MAIN INITIALIZATION - run once to initialize Nav struct
+	           //1) initialize gyro,accel,mag offsets at launch pad
+	           //2) read from sensors and run init_Navigation()
+	               //EXAMPLE: Nav nav = init_Navigation(data, gga, PSTMPV, GPS_ready);
+	               //Guidance guid = {0}; //can make guidance blank until we enter control loop
+	           //3) need something that will start the main loop when glider outside container, can we use descent acceleration?
+	               /*
+	               The accelerometer, though noisy, should measure nearly +1g when the glider reaches terminal velocity.
+	               So we can use a conditional that checks ICM42688P accel_z (or whichever axis is pointing vertical) and
+	               see when it's close to zero it may be best to do this over an average to avoid fast spikes in accelerometer
+	               values affecting when the main loop is started. We will have to coordinate transform this into the NED frame
+	               and I can work on getting this done ASAP unless we already have something we can use for this.
+	               */
+	   //EXAMPLE: MAIN INITIALIZATION - REPLACE NECESSARY ELEMENTS WITH SENSOR STRUCT FIELDS
+	   //So for example, gps[3] takes in gga struct latitude, longitude, and altitude (or global struct)
 
-   global_mission_data.ACCEL_X = ICM42688P_Data.accel_x;
-   global_mission_data.ACCEL_Y = ICM42688P_Data.accel_y;
-   global_mission_data.ACCEL_Z = ICM42688P_Data.accel_z;
+	   //float gps[3] = {global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE};
+	   //float accel[3][1] = {{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}}; //acceleration from the accelerometer (g) (XYZ)
+	   //float gyro[3][1] = {{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}}; // Gyro (RPY)
 
-   global_mission_data.ACCEL_R = ICM42688P_Data.accel_r;
-   global_mission_data.ACCEL_P = ICM42688P_Data.accel_p;
-   global_mission_data.ACCEL_YAW = ICM42688P_Data.accel_yaw;
+	   //nav = init_Navigation(gps, accel, gyro); //initialize the navigation states
 
-//   struct bmm350_mag_temp_data mag_data;
-//   BMM350_read_mag_data(&bmm350, &mag_data);
-
-    uint16_t voltage = 0;
-    HAL_StatusTypeDef status = BQ28Z610_ReadVoltage(&hi2c3, &voltage);
-    if (status == HAL_OK) {
-        global_mission_data.VOLTAGE = (float)voltage / 1000;
-    }
-
-    int16_t current = 0;
-    status = BQ28Z610_ReadCurrent(&hi2c3, &current);
-    if (status == HAL_OK)
-    {
-    	global_mission_data.CURRENT = (float)current / 1000;
-    }
-
-   //New code
-   if (GPS_READY)
-      {
-       // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
-       // into the gps_receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
-       int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data, &pstmpv_data);
-       GPS_READY = 0;
-
-       //result is 1 on success
-       if (result == 1)
-       {
-//           HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
-           global_mission_data.GPS_LATITUDE = gga_data.latitude;
-           global_mission_data.GPS_LONGITUDE = gga_data.longitude;
-           global_mission_data.GPS_ALTITUDE = gga_data.altitude;
-           global_mission_data.GPS_SATS = gga_data.num_satellites;
-
-           strcpy(global_mission_data.GPS_TIME, gga_data.gps_time);
-       }
-       else if (result == 2)
-       {
-    	   global_mission_data.GPS_LATITUDE = rmc_data.latitude;
-    	   global_mission_data.GPS_LONGITUDE = rmc_data.longitude;
-
-    	   strcpy(global_mission_data.GPS_TIME, rmc_data.gps_time);
-       }
-       else
-       {
-    	   HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+       if (cal_count == 1) {
+		   nav = init_Navigation((float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE},
+				   (float[3][1]){{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}},
+				   (float[3][1]){{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}});
        }
    }
 
@@ -1467,6 +1505,8 @@ void StartReadSensors(void const * argument)
      */
 
     // Relinquish access to the global_mission_data struct
+
+//    SERVO_Sweep_180(SERVO_Motor0);
 
     osSemaphoreRelease(globalDataHandle);
 
@@ -1707,14 +1747,18 @@ void StartReadCommands(void const * argument)
 				SERVO_MoveTo_180(GUIDE_SERVO1, 90);
         	}
         }
+        else if (strncmp(rx_string, "CMD,1075,GNC_ACT,", 17) == 0)
+        {
+        	nav.activateGNC = 1;
+        }
         else if (strncmp(rx_string, "CMD,1075,MEC,CAM0,", 18) == 0)
         {
         	if (strncmp(rx_string+18, "ON", 2) == 0) {
         		HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_SET);
-        	}
-        	else {
+        }
+        else {
         		HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_RESET);
-        	}
+        }
 
         }
 
@@ -1824,6 +1868,8 @@ void StartSendTelemetry(void const * argument)
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
     HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
+//    SERVO_Sweep_180(SERVO_Motor2);
+
     osDelay(1000);
   }
   /* USER CODE END StartSendTelemetry */
@@ -1843,26 +1889,51 @@ void StartGNC(void const * argument)
   /* Infinite loop */
   for (;;) {
 
-    //	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
-    osDelay(250);
+	// Not apart of Tristen's code.
     if (GPS_READY) {
-
       GPS_READY = 0;
     }
-    osDelay(1);
 
-    //    if (global_micro_sd_data.successfullyMounted) {
-    //    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
-    //    }
-    //    else {
-    //    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin,
-    //    GPIO_PIN_RESET);
-    //    }
+    if (nav.activateGNC) {
+    	if(CALIBRATE_HEAD_NEEDED){
+			nav.rpy[2][0] = atan2f(pstmpv_data.vel_East, pstmpv_data.vel_North);
+			CALIBRATE_HEAD_NEEDED = 0;
+    	}
+		// Tristan's GNC Code
+		Update_Navigation(&nav, (float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE},
+					   (float[3][1]){{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}},
+					   (float[3][1]){{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}},
+					   (float[3][1]){{pstmpv_data.vel_North},{pstmpv_data.vel_East},{pstmpv_data.vel_Vert}});
+		Update_Guidance(&nav,&guid); 				// With the new navigation states, update guidance commands
+		Update_Autopilot(&guid,&nav,&ap); 			// Determine autopilot commands which convert guidance commands into rotations
+		float cmd = computeCommand(&nav,&ap); 	// Compute the rotations necessary to turn the motors in us
 
-    SERVO_Sweep_180(SERVO_Motor0);
-//    SERVO_Sweep_180(SERVO_Motor4);
+		// SERVE CODE // (the servos should be run at a 50Hz frequency.)
+		// TODO: This should be tested.
+		SERVO_RawMove(GUIDE_SERVO0, cmd);
+//		SERVO_Sweep_180(GUIDE_SERVO0);
+		SERVO_RawMove(GUIDE_SERVO1, cmd);
 
-//    SERVO_RawMove(SERVO_Motor2,)
+		//CONDITIONAL LOGIC (this mainly just checks whether the paraglider needs to search for a target)
+		if (nav.slack == 1 && nav.DROPNOW == 1) {
+			printf("Condition 1 Entered. Deploying Egg....\n");
+			//ADD DEPLOYMENT CODE HERE (write to release servo)
+			SERVO_RawMove(EGG_SERVO, SERVO_Get_MaxPulse(EGG_SERVO));
+		}
+		else if (nav.slack == 1 && nav.DROPNOW == 0) {
+			printf("Condition 2 Entered. Searching for nearest target...\n");
+			findTarget(&nav, (float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE});
+		}
+		else if (nav.slack == 0 && nav.DROPNOW == 1) {
+			printf("Condition 3. Deploying Egg....\n");
+			//ADD DEPLOYMENT CODE HERE (write to release servo)
+			SERVO_RawMove(EGG_SERVO, SERVO_Get_MaxPulse(EGG_SERVO));
+		}
+		else if (nav.slack == 0 && nav.DROPNOW == 0) {
+			printf("Condition 4 Entered, Glider in Coast Phase\n");
+			findTarget(&nav, (float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE});
+		}
+    }
 
     HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
     osThreadYield();
