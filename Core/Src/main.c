@@ -50,11 +50,11 @@
 #define BUFFER_SIZE 		256
 #define XBEE_MAX_PAYLOAD 	80   // Safe value
 
-#define SERVO_Motor0 0
-#define SERVO_Motor1 1
+#define SERVO_Motor0 4
+#define SERVO_Motor1 3
 #define SERVO_Motor2 2
-#define SERVO_Motor3 3
-#define SERVO_Motor4 4
+#define SERVO_Motor3 1
+#define SERVO_Motor4 0
 
 #define EGG_SERVO SERVO_Motor1
 /* USER CODE END PD */
@@ -1859,6 +1859,9 @@ void StartGNC(void const * argument)
     Update_Autopilot(&guid,&nav,&ap); 			// Determine autopilot commands which convert guidance commands into rotations
     uint16_t cmd = computeCommand(&nav,&ap); 	// Compute the rotations necessary to turn the motors in us
 
+    // SERVE CODE // (the servos should be run at a 50Hz frequency.
+
+
     SERVO_Sweep(EGG_SERVO);
     // HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
     osThreadYield();
@@ -1905,11 +1908,11 @@ void StartInit(void const * argument)
 
 //  HAL_GPIO_WritePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin, GPIO_PIN_SET);
 
-  SERVO_Init(SERVO_Motor0, &htim3);
+  SERVO_Init(SERVO_Motor0, &htim15);
   SERVO_Init(SERVO_Motor1, &htim3);
   SERVO_Init(SERVO_Motor2, &htim3);
   SERVO_Init(SERVO_Motor3, &htim3);
-  SERVO_Init(SERVO_Motor4, &htim15);
+  SERVO_Init(SERVO_Motor4, &htim3);
 
 
   HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
