@@ -22,6 +22,8 @@ typedef struct
 
 static SERVO_info gs_SERVO_info[SERVO_NUM] = {0};
 
+uint8_t tim3_init = 0;
+
 
 void SERVO_Init(uint16_t au16_SERVO_Instance, TIM_HandleTypeDef *htim)
 {
@@ -30,6 +32,9 @@ void SERVO_Init(uint16_t au16_SERVO_Instance, TIM_HandleTypeDef *htim)
 
     SERVO_CfgParam[au16_SERVO_Instance].Handle = htim;
 
+//    if (htim->Instance == TIM3 && tim3_init == 0) {
+//    	return;
+//    }
 	/*--------[ Calculate The PSC & ARR Values To Maximize PWM Resolution ]-------*/
 
 	/* Those Equations Sets The F_pwm = 50Hz & Maximizes The Resolution*/
@@ -51,14 +56,25 @@ void SERVO_Init(uint16_t au16_SERVO_Instance, TIM_HandleTypeDef *htim)
 	/*--------[ Start The PWM Channel ]-------*/
 
 	HAL_TIM_PWM_Start(SERVO_CfgParam[au16_SERVO_Instance].Handle, SERVO_CfgParam[au16_SERVO_Instance].PWM_TIM_CH);
+
 }
 
 /* Moves A Specific Motor To A Specific Degree That Can Be Float Number */
-void SERVO_MoveTo(uint16_t au16_SERVO_Instance, float af_Angle)
+void SERVO_MoveTo_180(uint16_t au16_SERVO_Instance, float af_Angle)
 {
 	uint16_t au16_Pulse = 0;
 
 	au16_Pulse = ((af_Angle*(gs_SERVO_info[au16_SERVO_Instance].Period_Max - gs_SERVO_info[au16_SERVO_Instance].Period_Min))/180.0)
+			+ gs_SERVO_info[au16_SERVO_Instance].Period_Min;
+
+	*(SERVO_CfgParam[au16_SERVO_Instance].TIM_CCRx) = au16_Pulse;
+}
+
+void SERVO_MoveTo_270(uint16_t au16_SERVO_Instance, float af_Angle)
+{
+	uint16_t au16_Pulse = 0;
+
+	au16_Pulse = ((af_Angle*(gs_SERVO_info[au16_SERVO_Instance].Period_Max - gs_SERVO_info[au16_SERVO_Instance].Period_Min))/270.0)
 			+ gs_SERVO_info[au16_SERVO_Instance].Period_Min;
 
 	*(SERVO_CfgParam[au16_SERVO_Instance].TIM_CCRx) = au16_Pulse;
@@ -88,28 +104,54 @@ uint16_t SERVO_Get_MinPulse(uint16_t au16_SERVO_Instance)
 
 
 /* Move A Motor From 0 deg to 180 And Back to 0 again */
-void SERVO_Sweep(uint16_t au16_SERVO_Instance)
+void SERVO_Sweep_180(uint16_t au16_SERVO_Instance)
 {
 	uint8_t au8_Angle = 0;
 
-	SERVO_MoveTo(au16_SERVO_Instance, 0);
+	SERVO_MoveTo_180(au16_SERVO_Instance, 0);
 
-	osDelay(250);
-	SERVO_MoveTo(au16_SERVO_Instance, 180);
-	osDelay(1000);
-	SERVO_MoveTo(au16_SERVO_Instance, 0);
-	osDelay(1000);
-//	while(au8_Angle < 180)
-//	{
-//		SERVO_MoveTo(au16_SERVO_Instance, au8_Angle);
-//		au8_Angle += 10;
-//		osDelay(50);
-//	}
 //	osDelay(250);
-//	while(au8_Angle > 0)
-//	{
-//		SERVO_MoveTo(au16_SERVO_Instance, au8_Angle);
-//		au8_Angle -= 10;
-//		osDelay(50);
-//	}
+//	SERVO_MoveTo(au16_SERVO_Instance, 180);
+//	osDelay(1000);
+//	SERVO_MoveTo(au16_SERVO_Instance, 0);
+//	osDelay(1000);
+	while(au8_Angle < 180)
+	{
+		SERVO_MoveTo_180(au16_SERVO_Instance, au8_Angle);
+		au8_Angle += 10;
+		osDelay(50);
+	}
+	osDelay(250);
+	while(au8_Angle > 0)
+	{
+		SERVO_MoveTo_180(au16_SERVO_Instance, au8_Angle);
+		au8_Angle -= 10;
+		osDelay(50);
+	}
+}
+
+void SERVO_Sweep_270(uint16_t au16_SERVO_Instance)
+{
+	uint8_t au8_Angle = 0;
+
+	SERVO_MoveTo_270(au16_SERVO_Instance, 0);
+
+//	osDelay(250);
+//	SERVO_MoveTo(au16_SERVO_Instance, 180);
+//	osDelay(1000);
+//	SERVO_MoveTo(au16_SERVO_Instance, 0);
+//	osDelay(1000);
+	while(au8_Angle < 180)
+	{
+		SERVO_MoveTo_270(au16_SERVO_Instance, au8_Angle);
+		au8_Angle += 10;
+		osDelay(50);
+	}
+	osDelay(250);
+	while(au8_Angle > 0)
+	{
+		SERVO_MoveTo_270(au16_SERVO_Instance, au8_Angle);
+		au8_Angle -= 10;
+		osDelay(50);
+	}
 }
