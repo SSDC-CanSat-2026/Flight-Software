@@ -1547,7 +1547,7 @@ void StartReadCommands(void const * argument)
             	// set mission time
                 char *str_end;
                 strncpy(global_mission_data.MISSION_TIME, time_str, 9);
-                string_to_time(&global_mission_data.MISSION_TIME, &global_mission_data.MISSION_TIME_ms);
+                string_to_time(&global_mission_data.MISSION_TIME[0], &global_mission_data.MISSION_TIME_ms);
             }
             // read time from GPS
             else if (strncmp(time_str, "GPS", 3))
@@ -1558,7 +1558,7 @@ void StartReadCommands(void const * argument)
             {
             // if the string is not 8 characters long, set it to "00:00:00"
             	strcpy(global_mission_data.MISSION_TIME, "00:00:00");
-                string_to_time(&global_mission_data.MISSION_TIME, &global_mission_data.MISSION_TIME_ms);
+                string_to_time(&global_mission_data.MISSION_TIME[0], &global_mission_data.MISSION_TIME_ms);
             }
 
             // set command echo
@@ -1704,7 +1704,7 @@ void StartSendTelemetry(void const * argument)
 {
   /* USER CODE BEGIN StartSendTelemetry */
   osStatus stat = osErrorOS;
-//  global_flags.telemetry_enable = 1;
+  global_flags.telemetry_enable = 1;
   /* Infinite loop */
   for (;;) {
     // manually defines a critical region to ensure half-packets are never
@@ -1765,14 +1765,12 @@ void StartSendTelemetry(void const * argument)
 	HAL_UART_Transmit(&huart3, frame, data_len, HAL_MAX_DELAY);
 //    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
 
-	uint32_t bytes_written = write_SD(&telemetry_string[0], str_len, "FSW.csv", 0);
+//	uint32_t bytes_written = write_SD(&telemetry_string[0], str_len, "log26.csv", 0);
 
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
 
-    uint32_t result = write_SD(telemetry_string, str_len, "FSW.csv", 0);
-    if (result != FR_OK)
-    	HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+    uint32_t bytes_written = write_SD(telemetry_string, str_len, "log26.csv", 0);
 
     // Convert ms to hh:mm:ss and put into MISSION_TIME
     time_to_string(global_mission_data.MISSION_TIME_ms + HAL_GetTick() - HAL_TICK_OFFSET, &global_mission_data.MISSION_TIME[0]);
@@ -1787,7 +1785,7 @@ void StartSendTelemetry(void const * argument)
     // exit the critical region once both packets have been sent
     //    taskEXIT_CRITICAL();
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-//    HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
+    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
     osDelay(1000);
   }

@@ -56,13 +56,13 @@ void init_SD(void){
 	} else {
 	    // File exists, just close it
 
-		if (f_size(fil) == 0)
+		if (f_size(&file) == 0)
 		    {
-		        result = f_write(fil, header_string, strlen(header_string), &bytesWritten);
+				UINT bytesWritten;
+		        FRESULT result = f_write(&file, header_string, strlen(header_string), &bytesWritten);
 		        if (result != FR_OK || bytesWritten != strlen(header_string))
 		        {
-		            ret = 3;
-		            goto cleanup;
+					result = f_close(&file);
 		        }
 		    }
 		f_close(&file);
@@ -73,9 +73,9 @@ void init_SD(void){
 
 static FIL* get_fil_for_file(const char* filename)
 {
-    if (strstr(filename, "FSW") != NULL) return &fil_telemetry;
-    if (strstr(filename, "debug")       != NULL) return &fil_debug;
-    if (strstr(filename, "config")      != NULL) return &fil_config;
+    if (strstr(filename, "log26")  != NULL) return &fil_telemetry;
+    if (strstr(filename, "debug")  != NULL) return &fil_debug;
+    if (strstr(filename, "config") != NULL) return &fil_config;
     return NULL;  // unknown file
 }
 
@@ -175,5 +175,5 @@ cleanup:
         check_fatfs_guards();
         if (result != FR_OK) ret = 5;
     }
-    return ret;
+    return (ret ? ret : bytesWritten);
 }
