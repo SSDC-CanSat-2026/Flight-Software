@@ -123,7 +123,7 @@ ICM42688P_AccelData ICM42688P_Data = {0};
 // GNC Private Variables (PV)
 Nav nav 		= {0}; // Initialized in readCommands.
 Guidance guid 	= {0}; // no guidance initially, can set this to zero
-Pilot ap 		= {0}; // same story with the autopilot, can set this to zero
+AutoPilot ap 		= {0}; // same story with the autopilot, can set this to zero
 
 
 /* USER CODE END PV */
