@@ -36,6 +36,7 @@
 #include "../../Drivers/TeseoLIV3F/LIV3F.h"         // GPS Module
 #include "../../Drivers/SERVO/SERVO.h"      // Servos
 #include "../../Middlewares/Third_Party/FreeRTOS/Source/include/task.h"
+#include "../Inc/GNC.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -1808,27 +1809,36 @@ void StartGNC(void const * argument)
   /* Infinite loop */
   for (;;) {
 
-    //	HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
-    osDelay(250);
+	// Not apart of Tristen's code.
     if (GPS_READY) {
-
       GPS_READY = 0;
     }
-    osDelay(1);
 
-    //    if (global_micro_sd_data.successfullyMounted) {
-    //    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin, GPIO_PIN_SET);
-    //    }
-    //    else {
-    //    	HAL_GPIO_WritePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin,
-    //    GPIO_PIN_RESET);
-    //    }
+    //USE THE FOLLOWING BELOW AS A REFERENCE FOR CONSTRUCTION OF THE GNC ALGORITHM
+
+    //MAIN INITIALIZATION - run once to initialize Nav struct
+        //1) initialize gyro,accel,mag offsets at launch pad
+        //2) read from sensors and run init_Navigation()
+            //EXAMPLE: Nav nav = init_Navigation(data, gga, PSTMPV, GPS_ready);
+            //Guidance guid = {0}; //can make guidance blank until we enter control loop
+        //3) need something that will start the main loop when glider outside container, can we use descent acceleration?
+            /*
+            The accelerometer, though noisy, should measure nearly +1g when the glider reaches terminal velocity.
+            So we can use a conditional that checks ICM42688P accel_z (or whichever axis is pointing vertical) and
+            see when it's close to zero it may be best to do this over an average to avoid fast spikes in accelerometer
+            values affecting when the main loop is started. We will have to coordinate transform this into the NED frame
+            and I can work on getting this done ASAP unless we already have something we can use for this.
+            */
+    //EXAMPLE: MAIN INITIALIZATION - REPLACE NECESSARY ELEMENTS WITH SENSOR STRUCT FIELDS
+    //So for example, gps[3] takes in gga struct latitude, longitude, and altitude (or global struct)
+    float gps[3] = {global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE}; //arbitrary (this is just the center of the drop zone)
+    float accel[3][1] = {{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}}; //acceleration from the accelerometer (g) (XYZ)
+    float gyro[3][1] = {{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}}; // Gyro (RPY)
+
+    Nav nav = init_Navigation(gps,gyro,accel); //initialize the navigation states
 
     SERVO_Sweep(EGG_SERVO);
-
-//    SERVO_RawMove(SERVO_Motor2,)
-
-    HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
+    // HAL_GPIO_TogglePin(DEBUG_0_GPIO_Port, DEBUG_0_Pin);
     osThreadYield();
   }
   /* USER CODE END StartGNC */

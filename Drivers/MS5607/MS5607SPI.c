@@ -437,6 +437,8 @@ void determineState(){
 	}
 	// PROBE_RELEASE STATE
 	else if (strcmp(global_mission_data.STATE, "PROBE_RELEASE") == 0){
+		// TODO: Add the flag that start GNC calculations. Use the struct provided by Tristan.
+
 		if (global_mission_data.ALTITUDE < 2.5){
 			global_flags.mec_egg_release = 1;
 
