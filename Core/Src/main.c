@@ -1404,7 +1404,7 @@ void StartReadSensors(void const * argument)
     status = BQ28Z610_ReadCurrent(&hi2c3, &current);
     if (status == HAL_OK)
     {
-    	global_mission_data.CURRENT = (float)current;
+    	global_mission_data.CURRENT = (float)current / 1000;
     }
 
    //New code
