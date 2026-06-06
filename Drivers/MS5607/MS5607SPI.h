@@ -170,6 +170,8 @@ extern "C"
    */
   float calculate_abs_altitude(double pressure);
 
+  void determineState(Nav *nav);
+
 #ifdef __cplusplus
 }
 #endif

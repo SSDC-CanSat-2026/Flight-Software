@@ -1743,7 +1743,7 @@ void StartReadCommands(void const * argument)
 				SERVO_MoveTo_180(GUIDE_SERVO1, 90);
         	}
         }
-        else if (strncmp(rx_string, "CMD,1075,GNC_ACTIVATE,", 22) == 0)
+        else if (strncmp(rx_string, "CMD,1075,GNC_ACT,", 17) == 0)
         {
         	nav.activateGNC = 1;
         }
