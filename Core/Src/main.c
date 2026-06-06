@@ -1399,12 +1399,12 @@ void StartReadSensors(void const * argument)
      status = BQ28Z610_ReadCurrent(&hi2c3, &current);
      if (status == HAL_OK)
      {
-     	global_mission_data.CURRENT = (float)current;
+     	global_mission_data.CURRENT = (float)current / 1000;
      }
 
     //New code
     if (GPS_READY)
-       {
+    {
         // From my understanding: When the DMA interrupt occurs, we will copy the message from the DMA buffer
         // into the gps_receive_buffer. From there, we can then pass the receive buffer with the message into parse_gga
         int result = parse_gps_buffer(gps_receive_buffer, &gga_data, &rmc_data, &pstmpv_data);
@@ -1592,7 +1592,7 @@ void StartReadCommands(void const * argument)
                 string_to_time(&global_mission_data.MISSION_TIME[0], &global_mission_data.MISSION_TIME_ms);
             }
             // read time from GPS
-            else if (strncmp(time_str, "GPS", 3))
+            else if (strncmp(time_str, "GPS", 3) == 0)
             {
             	global_mission_data.MISSION_TIME_ms = rmc_data.time_ms;
             }
@@ -1832,14 +1832,12 @@ void StartSendTelemetry(void const * argument)
 	HAL_UART_Transmit(&huart3, frame, data_len, HAL_MAX_DELAY);
 //    HAL_UART_Transmit(&huart3, telemetry_string, str_len, HAL_MAX_DELAY);
 
-	uint32_t bytes_written = write_SD(&telemetry_string[0], str_len, "FSW.csv", 0);
+//	uint32_t bytes_written = write_SD(&telemetry_string[0], str_len, "log26.csv", 0);
 
     // increment packet count once the entire packet has been transmitted
     global_mission_data.PACKET_COUNT = global_mission_data.PACKET_COUNT + 1;
 
-    uint32_t result = write_SD(telemetry_string, str_len, "FSW.csv", 0);
-    if (result != FR_OK)
-    	HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
+    uint32_t bytes_written = write_SD(telemetry_string, str_len, "log26.csv", 0);
 
     // Convert ms to hh:mm:ss and put into MISSION_TIME
     time_to_string(global_mission_data.MISSION_TIME_ms + HAL_GetTick() - HAL_TICK_OFFSET, &global_mission_data.MISSION_TIME[0]);
@@ -1854,7 +1852,7 @@ void StartSendTelemetry(void const * argument)
     // exit the critical region once both packets have been sent
     //    taskEXIT_CRITICAL();
     HAL_GPIO_TogglePin(USR_LED_GPIO_Port, USR_LED_Pin);
-//    HAL_GPIO_TogglePin(DEBUG_1_GPIO_Port, DEBUG_1_Pin);
+    HAL_GPIO_TogglePin(DEBUG_2_GPIO_Port, DEBUG_2_Pin);
 
     osDelay(1000);
   }
