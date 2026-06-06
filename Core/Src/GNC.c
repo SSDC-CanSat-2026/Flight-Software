@@ -11,7 +11,6 @@
 #include "linalg.h"
 #include "GNC.h"
 
-
 //Define pi macro
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -21,7 +20,7 @@ const float DEG2RAD = M_PI*(1.0/180.0);
 const float eps = 30.0;
 #define DEL2US 58.97365f //this directly converts a deflection command to microseconds
 
-//6 axis  mounting angles (replace depending on what sensor mounting orientation is)
+//6 axis mounting angles (replace depending on what sensor mounting orientation is)
 #define IMUsens_yaw 90.0f //sensor mounting yaw
 #define IMUsens_pitch 0.0f //sensor mounting pitch
 #define IMUsens_roll 180.0f
@@ -57,10 +56,8 @@ float calculateTgo(float phi, float R, float Vg) {
 
 void findTarget(Nav *nav, float gps[3]){
     //Inputs:
+    //Nav nav = navigation structure
     //gps = {latitude,longitude,altitude}
-    //
-
-
     /*---- Description -----
     findTarget() - selects a target point within the target drop zone
     to navigate towards based on the following critieria
@@ -73,7 +70,7 @@ void findTarget(Nav *nav, float gps[3]){
     float rtp[3][1] = {{0},{0},{0}}; //target to glider NED vector preallocated.
     geodetic2ned(nav->trgtnodes[0][0],nav->trgtnodes[0][1],nav->trgtnodes[0][2],gps[0],gps[2],nav->pos_G[2][0],rtp); //get target to glider NED
     float arr1[2] = {rtp[0][0],rtp[1][0]}; //just want NE distance
-    float dist = dot(arr1,arr1,2); //compute north east distance to center target position
+    float dist = sqrtf(dot(arr1,arr1,2)); //compute north east distance to center target position
     float distprev = dist;
 
     //We iterate on each target, and check which one has the closest altitude time to intercept time
@@ -107,20 +104,19 @@ void findTarget(Nav *nav, float gps[3]){
         pos_G[2][0] = nav->pos_G[2][0];
 
         nav->HE = calculateHE(pos_G,vel_L);
-        float talt = nav->pos_G[2][0]/nav->vel_L[2][0];
+        float talt = (nav->pos_G[2][0]-nav->deployHeight)/nav->vel_L[2][0];
         float Vgarr[2] = {nav->vel_L[0][0],nav->vel_L[1][0]};
         float Vg = dot(Vgarr,Vgarr,2);
         dist = sqrt(dot(arr1,arr1,2));
         float tgo = calculateTgo(nav->HE,dist,Vg);
         float tgo_prev = tgo;
-        float tdiff = fabsf(tgo-talt);
-        float tdiffprev = tdiff;
+        float tdiff;
+        float tdiffprev;
         for (int i=1;i<5;i++) {
             //Check the time to go from each target
             geodetic2ned(nav->trgtnodes[i][0],nav->trgtnodes[i][1],nav->trgtnodes[i][2],gps[0],gps[1],gps[2],rtp); //get target to glider NED
             float arr1[2] = {rtp[0][0],rtp[1][0]}; //getting NE distance
             nav->HE = calculateHE(rtp,nav->vel_L);
-
             float Vgarr[2] = {nav->vel_L[0][0],nav->vel_L[1][0]}; //getting velocity in North-East plane
             Vg = dot(Vgarr,Vgarr,2);
             dist = dot(arr1,arr1,2);
@@ -135,21 +131,23 @@ void findTarget(Nav *nav, float gps[3]){
                 nav->trgt[1][0] = nav->trgtnodes[i][1];
                 nav->trgt[2][0] = nav->trgtnodes[i][2];
                 printf("Target found!\n");
+                nav->pursue = 1;
             }
             else if (fabsf(tdiff)<fabsf(tdiffprev)){ // otherwise fing the target with a smaller time regardless of sign
                 nav->trgt[0][0] = nav->trgtnodes[i][0];
                 nav->trgt[1][0] = nav->trgtnodes[i][1];
                 nav->trgt[2][0] = nav->trgtnodes[i][2];
                 printf("FOUND TARGET\n");
+                nav->pursue = 1;
             }
             //otherwise, don't assign a new target
             tdiffprev = tdiff;
         }
         //Check if the trgt changed, if it did, we found a target to pursue.
-        if (trgtprev != nav->trgt[0][0]) {
+        if (nav->pursue == 1) {
             printf("FOUND TARGET\n");
-            nav->pursue = 1;
-            nav->timeFound = 2;
+            nav->timeFound = HAL_GetTick();
+            nav->timeIntercept = (uint32_t)(tgo/1000.0)+HAL_GetTick();
         }
         else {
             printf("Did not find a new target\n");
@@ -260,7 +258,9 @@ Nav init_Navigation(float gps[3], float gyro[3][1], float accel[3][1]) {
         // gps = {latitude,longitude,height}
         // gyro = {{roll_rate},{pitch_rate},{yaw_rate}}
         // accel = {{accel_x},{accel_y},{accel_z}}
-
+    gps[0] = 38.37564166666667;
+    gps[1] = -79.60739444444444;
+    gps[2] = 1050.0;
     //Right now not using gyro and accel. But they should be used for determining offsets
 
     /*This function commputes the navigation states from initial sensor data on the launch pad before launch
@@ -306,7 +306,7 @@ Nav init_Navigation(float gps[3], float gyro[3][1], float accel[3][1]) {
     return nav;
 }
 
-void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][1]) {
+void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][1], float gpsVelocity[3][1]) {
     //Inputs:
         // *nav - pointer to navigation struct
         // gps = {latitude,longitude,height}
@@ -326,8 +326,7 @@ void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][
     rpyDCM(IMUsens_roll,IMUsens_pitch,IMUsens_yaw,R_IB); //compute the rotation matrix from sensor frame to body frame
 
     //TIME VARIABLES
-    //uint32_t currtime = HAL_GetTick();
-    uint32_t currtime = nav->time+1;
+    uint32_t currtime = HAL_GetTick();
     uint32_t delta_t = currtime-nav->time; //get time difference
     nav->time = currtime;
 
@@ -361,21 +360,21 @@ void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][
 
     //float mag_yaw = atan2f(mag_NED[1][0],mag_NED[0][0]);
     //mag_yaw = mag_yaw+mag_decl;
-
-    nav->rpy[2][0] = gyro_rpy[2][0]; //can only use gyro yaw
+    float gpsYaw = atan2f(gpsVelocity[1][0],gpsVelocity[0][0]);
+    nav->rpy[2][0] = (w1*gyro_rpy[2][0])+(w2*gpsYaw); //can only use gyro yaw
 
     //------------------- VELOCITY (North, East, Down in m/s) -------------------
     //VELOCITY
-    w1 = 0.96; //more reliant on GPS properties in this phase
-    w2 = 0.04;
+    // float w1_vel = 0.96;
+    // float w2_vel = 0.04;
     //Note, GPS may not be ready, add conditional that integrates accelerometer completely if this is the case
     float vel_accelx = nav->vel_L[0][0]+accel[0][0]*delta_t;
     float vel_accely = nav->vel_L[1][0]+accel[1][0]*delta_t;
     float vel_accelz = nav->vel_L[2][0]+accel[2][0]*delta_t;
 
-    nav->vel_L[0][0] = vel_accelx;
-    nav->vel_L[1][0] = vel_accely;
-    nav->vel_L[2][0] = vel_accelz;
+    nav->vel_L[0][0] = (w1*gpsVelocity[0][0])+(w2*vel_accelx);
+    nav->vel_L[1][0] = (w1*gpsVelocity[1][0])+(w2*vel_accely);
+    nav->vel_L[2][0] = (w1*gpsVelocity[2][0])+(w2*vel_accelz);
 
     //------------------ POSITION (North, East, Down in m) -------------------
     float pos_GPS[3][1] = {{0.0},{0.0},{0.0}};
@@ -390,11 +389,6 @@ void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][
     nav->pos_G[1][0] = (w1*pos_GPS[1][0])+(w2*pos_vel_y);
     nav->pos_G[2][0] = (w1*pos_GPS[2][0])+(w2*pos_vel_z);
 
-    //If no GPS available
-    //nav->pos_G[0][0] = (pos_vel_x);
-    //nav->pos_G[1][0] = (pos_vel_y);
-    //nav->pos_G[2][0] = (pos_vel_z);
-
     //check target intercept
     if (fabsf(nav->pos_G[0][0])<12.192f && fabsf(nav->pos_G[1][0])<12.192f && nav->mode == 1){ //about the width of the drop zone
         printf("At the target! Switching to coast mode\n");
@@ -406,11 +400,9 @@ void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][
         if ((nav->pos_G[2][0]-nav->deployHeight)<5.0) { //include some offset between release height and glider height due to release delay
             nav->DROPNOW = 1; // we are go for drop
         }
-        else {
+        else if ((nav->time > nav->timeIntercept)){
             nav->DROPNOW = 0; //not ready for deployment
             nav->slack = 1; //slack time available to loiter in drop zone
         }
     }
-
 }
-

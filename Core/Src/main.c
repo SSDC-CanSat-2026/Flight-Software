@@ -1884,7 +1884,8 @@ void StartGNC(void const * argument)
 		// Tristan's GNC Code
 		Update_Navigation(&nav, (float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE},
 					   (float[3][1]){{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}},
-					   (float[3][1]){{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}});
+					   (float[3][1]){{global_mission_data.GYRO_R},{global_mission_data.GYRO_P},{global_mission_data.GYRO_Y}},
+					   (float[3][1]){{pstmpv_data.vel_North},{pstmpv_data.vel_East},{pstmpv_data.vel_Vert}});
 		Update_Guidance(&nav,&guid); 				// With the new navigation states, update guidance commands
 		Update_Autopilot(&guid,&nav,&ap); 			// Determine autopilot commands which convert guidance commands into rotations
 		uint16_t cmd = computeCommand(&nav,&ap); 	// Compute the rotations necessary to turn the motors in us

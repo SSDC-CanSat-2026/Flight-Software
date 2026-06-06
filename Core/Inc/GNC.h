@@ -9,7 +9,6 @@
 #define INC_GNC_H_
 
 #include <stdint.h>
-
 //Define pi macro
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -37,7 +36,7 @@ typedef struct {
     int pursue; //boolean that determines if a target can be pursued
     int DROPNOW; //boolean that determines when the egg gets dropped
     int activateGNC; //boolean that determines when GNC main loop turns on
-
+    int tgo;
     uint32_t time;
     uint32_t timeFound; // time a target was found
     uint32_t timeIntercept; //time a target has been intercepted
@@ -63,6 +62,6 @@ uint16_t computeCommand(Nav *nav, AutoPilot *ap);
 Nav init_Navigation(float gps[3], float gyro[3][1], float accel[3][1]);
 void Update_Autopilot(Guidance *guid, Nav *nav, AutoPilot *ap);
 void Update_Guidance(Nav *nav, Guidance *guid);
-void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][1]);
+void Update_Navigation(Nav *nav, float gps[3], float gyro[3][1], float accel[3][1], float gpsVelocity[3][1]);
 
 #endif /* INC_GNC_H_ */
