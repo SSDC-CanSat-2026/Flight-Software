@@ -1707,6 +1707,16 @@ void StartReadCommands(void const * argument)
 				SERVO_MoveTo_180(GUIDE_SERVO1, 90);
         	}
         }
+        else if (strncmp(rx_string, "CMD,1075,MEC,CAM0,", 18) == 0)
+        {
+        	if (strncmp(rx_string+18, "ON", 2) == 0) {
+        		HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_SET);
+        	}
+        	else {
+        		HAL_GPIO_WritePin(CAM0_CTRL_GPIO_Port, CAM0_CTRL_Pin, GPIO_PIN_RESET);
+        	}
+
+        }
 
         COMMAND_READY = 0;
 
@@ -1731,7 +1741,7 @@ void StartSendTelemetry(void const * argument)
 {
   /* USER CODE BEGIN StartSendTelemetry */
   osStatus stat = osErrorOS;
-  global_flags.telemetry_enable = 1;
+//  global_flags.telemetry_enable = 1;
   /* Infinite loop */
   for (;;) {
     // manually defines a critical region to ensure half-packets are never
