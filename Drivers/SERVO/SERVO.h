@@ -18,7 +18,7 @@
 
 #define APB1_clk 64000000
 #define APB2_clk 64000000
-#define min_pulse 0.65
+#define min_pulse 0.5
 #define max_pulse 2.5
 
 #include "stm32g4xx_hal.h"
@@ -44,11 +44,13 @@ typedef struct
 /*-----[ Prototypes For All Functions ]-----*/
 
 void SERVO_Init(uint16_t au16_SERVO_Instance, TIM_HandleTypeDef *htim);
-void SERVO_MoveTo(uint16_t au16_SERVO_Instance, float af_Angle);
+void SERVO_MoveTo_180(uint16_t au16_SERVO_Instance, float af_Angle);
+void SERVO_MoveTo_270(uint16_t au16_SERVO_Instance, float af_Angle);
 void SERVO_RawMove(uint16_t au16_SERVO_Instance, uint16_t au16_Pulse);
 uint16_t SERVO_Get_MaxPulse(uint16_t au16_SERVO_Instance);
 uint16_t SERVO_Get_MinPulse(uint16_t au16_SERVO_Instance);
-void SERVO_Sweep(uint16_t au16_SERVO_Instance);
+void SERVO_Sweep_180(uint16_t au16_SERVO_Instance);
+void SERVO_Sweep_270(uint16_t au16_SERVO_Instance);
 
 
 #endif /* SERVO_H_ */

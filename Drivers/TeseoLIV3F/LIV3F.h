@@ -46,8 +46,9 @@
 #include <string.h>
 #include <math.h>
 
-#define MAX_GGA_FIELDS 20
-#define MAX_RMC_FIELDS 15
+#define MAX_GGA_FIELDS 		20
+#define MAX_RMC_FIELDS 		15
+#define MAX_PSTMPV_FIELDS	23
 
 // We may or may not need another struct for GNC purposes.
 
@@ -87,6 +88,31 @@ typedef struct
     uint8_t day;
 }RMC_Data_t;
 
+typedef struct
+{
+	char  		timestamp[10];
+	uint32_t 	time_ms;
+	float 		latitude;
+	float 		longitude;
+	float 		altitude;
+	char  		alt_val;
+	float 		vel_North;
+	float 		vel_East;
+	float 		vel_Vert;
+	float 		P_cov_N;
+	float 		P_cov_NE;
+	float 		P_cov_NV;
+	float 		P_cov_E;
+	float 		P_cov_EV;
+	float 		P_cov_V;
+	float 		V_cov_N;
+	float 		V_cov_NE;
+	float 		V_cov_NV;
+	float 		V_cov_E;
+	float 		V_cov_EV;
+	float 		V_cov_V;
+} PSTMPV_Data_t;
+
 
 //extern GGA_Data_t gps_data;
 //extern RMC_Data_t rmc_data;
@@ -94,9 +120,10 @@ typedef struct
 void teseo_INIT(UART_HandleTypeDef* huart);
 void cold_start(UART_HandleTypeDef* huart);
 
-int parse_gps_buffer(char *sentence, GGA_Data_t* gga_out, RMC_Data_t* rmc_out);
+int parse_gps_buffer(char *sentence, GGA_Data_t* gga_out, RMC_Data_t* rmc_out, PSTMPV_Data_t* pstmpv_out);
 int parse_gga(char *sentence, GGA_Data_t* out);
 int parse_rmc(char *sentence, RMC_Data_t* out);
+int parse_pstmpv(char *sentence, PSTMPV_Data_t* pstmpv_out);
 
 // Just copy the below functions from the LC76(G) driver
 // Specifically from the modified 2025 FSW code.
@@ -106,8 +133,3 @@ int parse_rmc(char *sentence, RMC_Data_t* out);
 //uint8_t convert_to_integer(char string_int[]);
 void time_to_string(uint32_t time_ms, char *out); // This is also used for MISSION_TIME
 void string_to_time(const char *in, uint32_t *time_ms);
-
-/* Private helpers */
-static uint32_t parse_gps_str_time_ms(const char *s);
-static float nmea_to_decimal(char *coord, char dir);
-static float fast_atof(const char *s);
