@@ -128,7 +128,8 @@ ICM42688P_AccelData ICM42688P_Data = {0};
 // GNC Private Variables (PV)
 Nav nav 		= {0}; // Initialized in readCommands.
 Guidance guid 	= {0}; // no guidance initially, can set this to zero
-AutoPilot ap 		= {0}; // same story with the autopilot, can set this to zero
+AutoPilot ap 	= {0}; // same story with the autopilot, can set this to zero
+volatile uint8_t CALIBRATE_HEAD_NEEDED = 1;
 
 
 /* USER CODE END PV */
@@ -1368,8 +1369,7 @@ void StartReadSensors(void const * argument)
 
     global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE) - global_mission_data.ALTITUDE_OFFSET;
 
-//    global_mission_data.ALTITUDE = calculateAltitude(global_mission_data.PRESSURE);
-//    determineState(global_mission_data.ALTITUDE);
+    determineState(&nav);
 
 
     // ICM42688P_AccelData ICM42688P_Data = ICM42688P_read_data();
@@ -1877,6 +1877,10 @@ void StartGNC(void const * argument)
     }
 
     if (nav.activateGNC) {
+    	if(CALIBRATE_HEAD_NEEDED){
+			nav.rpy[2][0] = atan2f(pstmpv_data.vel_East, pstmpv_data.vel_North);
+			CALIBRATE_HEAD_NEEDED = 0;
+    	}
 		// Tristan's GNC Code
 		Update_Navigation(&nav, (float[3]){global_mission_data.GPS_LATITUDE, global_mission_data.GPS_LONGITUDE, global_mission_data.GPS_ALTITUDE},
 					   (float[3][1]){{global_mission_data.ACCEL_X},{global_mission_data.ACCEL_Y},{global_mission_data.ACCEL_Z}},
