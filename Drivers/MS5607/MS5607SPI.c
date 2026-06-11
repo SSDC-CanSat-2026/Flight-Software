@@ -440,8 +440,9 @@ void determineState(Nav *nav){
 	else if (strcmp(global_mission_data.STATE, "PROBE_RELEASE") == 0){
 		// TODO: Add the flag that start GNC calculations. Use the struct provided by Tristan.
 
-		if (global_mission_data.ALTITUDE < 2.5){
+		if (global_mission_data.ALTITUDE < 10){
 			global_flags.mec_egg_release = 1;
+
 
 			char _state[] = "PAYLOAD_RELEASE";
 			memcpy(global_mission_data.STATE, _state, sizeof(_state));

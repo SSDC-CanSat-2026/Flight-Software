@@ -27,6 +27,9 @@ uint8_t tim3_init = 0;
 
 void SERVO_Init(uint16_t au16_SERVO_Instance, TIM_HandleTypeDef *htim)
 {
+	if (tim3_init)
+		return;
+
     uint32_t PSC_Value = 0;
     uint32_t ARR_Value = 0;
 
@@ -47,15 +50,19 @@ void SERVO_Init(uint16_t au16_SERVO_Instance, TIM_HandleTypeDef *htim)
 	SERVO_CfgParam[au16_SERVO_Instance].Handle->Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	SERVO_CfgParam[au16_SERVO_Instance].Handle->Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
 
+	gs_SERVO_info[au16_SERVO_Instance].Period_Min = (uint16_t) (ARR_Value * (SERVO_CfgParam[au16_SERVO_Instance].MinPulse/20.0));
+	gs_SERVO_info[au16_SERVO_Instance].Period_Max = (uint16_t) (ARR_Value * (SERVO_CfgParam[au16_SERVO_Instance].MaxPulse/20.0));
+
 	HAL_TIM_Base_Init(SERVO_CfgParam[au16_SERVO_Instance].Handle);
 	HAL_TIM_PWM_Init(SERVO_CfgParam[au16_SERVO_Instance].Handle);
 
-	gs_SERVO_info[au16_SERVO_Instance].Period_Min = (uint16_t) (ARR_Value * (SERVO_CfgParam[au16_SERVO_Instance].MinPulse/20.0));
-	gs_SERVO_info[au16_SERVO_Instance].Period_Max = (uint16_t) (ARR_Value * (SERVO_CfgParam[au16_SERVO_Instance].MaxPulse/20.0));
 
 	/*--------[ Start The PWM Channel ]-------*/
 
 	HAL_TIM_PWM_Start(SERVO_CfgParam[au16_SERVO_Instance].Handle, SERVO_CfgParam[au16_SERVO_Instance].PWM_TIM_CH);
+
+	if (htim->Instance == TIM3)
+		tim3_init = 1;
 
 }
 

@@ -64,9 +64,9 @@ SERVO_CfgType SERVO_CfgParam[SERVO_NUM] =
 	{
 		GPIOA,
 		GPIO_PIN_3,
-		TIM15,
-		&TIM15->CCR2,
-		TIM_CHANNEL_2,
+		TIM2,
+		&TIM2->CCR4,
+		TIM_CHANNEL_4,
 		APB2_clk,
 		min_pulse,
 		max_pulse

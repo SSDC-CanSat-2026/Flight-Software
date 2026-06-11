@@ -79,8 +79,6 @@ void Error_Handler(void);
 #define GPS_1PPS_GPIO_Port GPIOA
 #define CLK_32k_Pin GPIO_PIN_2
 #define CLK_32k_GPIO_Port GPIOA
-#define DRV_EN0_Pin GPIO_PIN_3
-#define DRV_EN0_GPIO_Port GPIOA
 #define DRV_DIR0_Pin GPIO_PIN_4
 #define DRV_DIR0_GPIO_Port GPIOA
 #define CAM1_CTRL_Pin GPIO_PIN_5
